@@ -1,0 +1,71 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+)
+
+type Lox struct {
+	hadError bool
+}
+
+func main() {
+	lx := Lox{}
+	lx.main()
+}
+
+func (lx *Lox) main() {
+	args := os.Args[1:]
+	if len(args) > 1 {
+		fmt.Println("Usage: glox [script]")
+		os.Exit(64)
+	} else if len(args) == 1 {
+		lx.runFile(args[0])
+	} else {
+		lx.runPrompt()
+	}
+}
+
+func (lx *Lox) runFile(path string) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("Failed to read file: %v", err)
+	}
+	lx.run(string(content))
+	if lx.hadError {
+		os.Exit(65)
+	}
+}
+
+func (lx *Lox) runPrompt() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("> ")
+		scanner.Scan()
+		line := scanner.Text()
+		line = strings.TrimSuffix(line, "\n")
+		lx.run(line)
+		lx.hadError = false
+	}
+}
+
+func (lx *Lox) run(source string) {
+	scanner := Scanner{ source }
+	tokens := scanner.ScanTokens()
+	
+	for _, token := range tokens {
+		fmt.Println(token)
+	}
+}
+
+func (lx *Lox) error(line int, message string) {
+	lx.report(line, "", message)
+}
+
+func (lx *Lox) report(line int, where string, message string) {
+	lx.hadError = true
+	log.Fatalf("[line %d] Error%v: %v", line, where, message)
+}
