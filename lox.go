@@ -53,19 +53,19 @@ func (lx *Lox) runPrompt() {
 }
 
 func (lx *Lox) run(source string) {
-	scanner := Scanner{ source }
+	scanner := Scanner{source: source, tokens: make([]Token, 0), start: 0, current: 0, line: 1, lox: lx}
 	tokens := scanner.ScanTokens()
-	
+
 	for _, token := range tokens {
-		fmt.Println(token)
+		fmt.Printf("%+v\n", token)
 	}
 }
 
-func (lx *Lox) error(line int, message string) {
+func (lx *Lox) Error(line int, message string) {
 	lx.report(line, "", message)
 }
 
 func (lx *Lox) report(line int, where string, message string) {
 	lx.hadError = true
-	log.Fatalf("[line %d] Error%v: %v", line, where, message)
+	fmt.Printf("[line %d] Error%v: %v\n", line, where, message)
 }
