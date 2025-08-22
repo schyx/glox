@@ -21,8 +21,23 @@ func main() {
 		operator: Token{tokenType: STAR, lexeme: "*", literal: nil, line: 1},
 		right:    Grouping{expression: Literal{value: 45.67}},
 	}
+	expr2 := Binary{
+		left: Binary{
+			left: Literal{value: 1},
+			operator: Token{tokenType: PLUS, lexeme: "+", literal: nil, line: 1},
+			right: Literal{value: 2},
+		},
+		operator: Token{tokenType: STAR, lexeme: "*", literal: nil, line: 1},
+		right: Binary{
+			left: Literal{value: 3},
+			operator: Token{tokenType: MINUS, lexeme: "-", literal: nil, line: 1},
+			right: Literal{value: 4},
+		},
+	}
 	astp := AstPrinter{}
 	fmt.Println(astp.Print(expr))
+	rpn := RPN{}
+	fmt.Println(rpn.Print(expr2))
 	lx := Lox{}
 	lx.main()
 }
