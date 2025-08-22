@@ -13,6 +13,16 @@ type Lox struct {
 }
 
 func main() {
+	expr := Binary{
+		left: Unary{
+			operator: Token{tokenType: MINUS, lexeme: "-", literal: nil, line: 1},
+			right: Literal{value: 123},
+		},
+		operator: Token{tokenType: STAR, lexeme: "*", literal: nil, line: 1},
+		right:    Grouping{expression: Literal{value: 45.67}},
+	}
+	astp := AstPrinter{}
+	fmt.Println(astp.Print(expr))
 	lx := Lox{}
 	lx.main()
 }
