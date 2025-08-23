@@ -13,31 +13,6 @@ type Lox struct {
 }
 
 func main() {
-	expr := Binary{
-		left: Unary{
-			operator: Token{tokenType: MINUS, lexeme: "-", literal: nil, line: 1},
-			right: Literal{value: 123},
-		},
-		operator: Token{tokenType: STAR, lexeme: "*", literal: nil, line: 1},
-		right:    Grouping{expression: Literal{value: 45.67}},
-	}
-	expr2 := Binary{
-		left: Binary{
-			left: Literal{value: 1},
-			operator: Token{tokenType: PLUS, lexeme: "+", literal: nil, line: 1},
-			right: Literal{value: 2},
-		},
-		operator: Token{tokenType: STAR, lexeme: "*", literal: nil, line: 1},
-		right: Binary{
-			left: Literal{value: 3},
-			operator: Token{tokenType: MINUS, lexeme: "-", literal: nil, line: 1},
-			right: Literal{value: 4},
-		},
-	}
-	astp := AstPrinter{}
-	fmt.Println(astp.Print(expr))
-	rpn := RPN{}
-	fmt.Println(rpn.Print(expr2))
 	lx := Lox{}
 	lx.main()
 }
@@ -80,10 +55,14 @@ func (lx *Lox) runPrompt() {
 func (lx *Lox) run(source string) {
 	scanner := Scanner{source: source, tokens: make([]Token, 0), start: 0, current: 0, line: 1, lox: lx}
 	tokens := scanner.ScanTokens()
-
-	for _, token := range tokens {
-		fmt.Printf("%+v\n", token)
+	parser := Parser{tokens: tokens, current: 0, lx: lx}
+	expr, err := parser.Parse()
+	if err != nil {
+		return
 	}
+	astp := AstPrinter{}
+	astp.Print(expr)
+	fmt.Printf("%s\n", astp.output)
 }
 
 func (lx *Lox) Error(line int, message string) {
@@ -93,4 +72,12 @@ func (lx *Lox) Error(line int, message string) {
 func (lx *Lox) report(line int, where string, message string) {
 	lx.hadError = true
 	fmt.Printf("[line %d] Error%v: %v\n", line, where, message)
+}
+
+func (lx *Lox) ParseError(token Token, message string) {
+	if token.tokenType == EOF {
+		lx.report(token.line, " at end", message)
+	} else {
+		lx.report(token.line, fmt.Sprintf(" at '%s'", token.lexeme), message)
+	}
 }
