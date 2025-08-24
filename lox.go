@@ -60,12 +60,12 @@ func (lx *Lox) run(source string) {
 	scanner := Scanner{source: source, tokens: make([]Token, 0), start: 0, current: 0, line: 1, lox: lx}
 	tokens := scanner.ScanTokens()
 	parser := Parser{tokens: tokens, current: 0, lx: lx}
-	expr, err := parser.Parse()
+	statements, err := parser.Parse()
 	if err != nil {
 		return
 	}
 	interpreter := Interpreter{lx: lx}
-	interpreter.Interpret(expr)
+	interpreter.Interpret(statements)
 }
 
 func (lx *Lox) Error(line int, message string) {

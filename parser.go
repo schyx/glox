@@ -11,12 +11,53 @@ type Parser struct {
 	lx      *Lox
 }
 
-func (p *Parser) Parse() (Expr, error) {
-	return p.expression()
+func (p *Parser) Parse() ([]Stmt, error) {
+	statements := make([]Stmt, 0)
+	for !p.isAtEnd() {
+		statement, err := p.statement()
+		if err != nil {
+			return make([]Stmt, 0), err
+		}
+		statements = append(statements, statement)
+	}
+	return statements, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
 	return p.equality()
+}
+
+func (p *Parser) statement() (Stmt, error) {
+	if p.match([]TokenType{PRINT}) {
+		return p.printStatement()
+	}
+	return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (Stmt, error) {
+	value, exprErr := p.expression()
+	if exprErr != nil {
+		return nil, exprErr
+	}
+	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after vale.")
+	if consumeErr != nil {
+		p.lx.ParseError(p.peek(), consumeErr.Error())
+		return nil, errors.New(consumeErr.Error())
+	}
+	return Print{value}, nil
+}
+
+func (p *Parser) expressionStatement() (Stmt, error) {
+	value, exprErr := p.expression()
+	if exprErr != nil {
+		return nil, exprErr
+	}
+	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after vale.")
+	if consumeErr != nil {
+		p.lx.ParseError(p.peek(), consumeErr.Error())
+		return nil, errors.New(consumeErr.Error())
+	}
+	return Expression{value}, nil
 }
 
 func (p *Parser) equality() (Expr, error) {

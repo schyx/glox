@@ -12,13 +12,14 @@ type Interpreter struct {
 	lx       *Lox
 }
 
-func (interp *Interpreter) Interpret(expr Expr) {
-	interp.evaluate(expr)
-	if interp.err != nil {
-		interp.lx.RuntimeError(interp.badToken, interp.err)
-		return
+func (interp *Interpreter) Interpret(statements []Stmt) {
+	for _, statement := range statements {
+		interp.execute(statement)
+		if interp.err != nil {
+			interp.lx.RuntimeError(interp.badToken, interp.err)
+			return
+		}
 	}
-	fmt.Printf("%v\n", interp.output)
 }
 
 func (interp *Interpreter) visitBinary(expr Binary) {
@@ -162,6 +163,21 @@ func isTruthy(object any) bool {
 
 func (interp *Interpreter) evaluate(expr Expr) {
 	expr.accept(interp)
+}
+
+func (interp *Interpreter) execute(stmt Stmt) {
+	stmt.accept(interp)
+}
+
+func (interp *Interpreter) visitExpression(stmt Expression) {
+	interp.evaluate(stmt.expr)
+	interp.output = nil
+}
+
+func (interp *Interpreter) visitPrint(stmt Print) {
+	interp.evaluate(stmt.expr)
+	fmt.Printf("%v\n", interp.output)
+	interp.output = nil
 }
 
 func evalExpr(expr Expr) (any, error, Token) {

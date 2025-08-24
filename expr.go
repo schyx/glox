@@ -1,7 +1,7 @@
 package main
 
 type Expr interface {
-	accept(Visitor)
+	accept(ExprVisitor)
 }
 
 type Binary struct {
@@ -10,28 +10,28 @@ type Binary struct {
 	right    Expr
 }
 
-func (b Binary) accept(v Visitor) { v.visitBinary(b) }
+func (b Binary) accept(v ExprVisitor) { v.visitBinary(b) }
 
 type Grouping struct {
 	expression Expr
 }
 
-func (g Grouping) accept(v Visitor) { v.visitGrouping(g) }
+func (g Grouping) accept(v ExprVisitor) { v.visitGrouping(g) }
 
 type Literal struct {
 	value any
 }
 
-func (l Literal) accept(v Visitor) { v.visitLiteral(l) }
+func (l Literal) accept(v ExprVisitor) { v.visitLiteral(l) }
 
 type Unary struct {
 	operator Token
 	right    Expr
 }
 
-func (u Unary) accept(v Visitor) { v.visitUnary(u) }
+func (u Unary) accept(v ExprVisitor) { v.visitUnary(u) }
 
-type Visitor interface {
+type ExprVisitor interface {
 	visitBinary(Binary)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
