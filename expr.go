@@ -31,9 +31,16 @@ type Unary struct {
 
 func (u Unary) accept(v ExprVisitor) { v.visitUnary(u) }
 
+type Variable struct {
+	name Token
+}
+
+func (variable Variable) accept(v ExprVisitor) {v.visitVariable(variable) }
+
 type ExprVisitor interface {
 	visitBinary(Binary)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
 	visitUnary(Unary)
+	visitVariable(Variable)
 }

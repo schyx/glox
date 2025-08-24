@@ -16,7 +16,15 @@ type Print struct {
 
 func (p Print) accept(v StmtVisitor) { v.visitPrint(p) }
 
+type Var struct {
+	name        Token
+	initializer Expr
+}
+
+func (variable Var) accept(v StmtVisitor) { v.visitVar(variable) }
+
 type StmtVisitor interface {
 	visitExpression(Expression)
 	visitPrint(Print)
+	visitVar(Var)
 }

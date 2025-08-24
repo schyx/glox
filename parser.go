@@ -14,7 +14,7 @@ type Parser struct {
 func (p *Parser) Parse() ([]Stmt, error) {
 	statements := make([]Stmt, 0)
 	for !p.isAtEnd() {
-		statement, err := p.statement()
+		statement, err := p.declaration()
 		if err != nil {
 			return make([]Stmt, 0), err
 		}
@@ -25,6 +25,36 @@ func (p *Parser) Parse() ([]Stmt, error) {
 
 func (p *Parser) expression() (Expr, error) {
 	return p.equality()
+}
+
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match([]TokenType{VAR}) {
+		return p.varDeclaration()
+	}
+	return p.statement()
+}
+
+func (p *Parser) varDeclaration() (Stmt, error) {
+	name, identifierConsumeErr := p.consume(IDENTIFIER, "Expect variable name.") // TODO: refactor `consume` to throw error
+	if identifierConsumeErr != nil {
+		p.lx.ParseError(p.peek(), identifierConsumeErr.Error())
+		return nil, errors.New(identifierConsumeErr.Error())
+	}
+	var initializer Expr = nil
+	if p.match([]TokenType{EQUAL}) {
+		var exprErr error
+		initializer, exprErr = p.expression()
+		if exprErr != nil {
+			return nil, exprErr
+		}
+	}
+
+	_, semicolonConsumeErr := p.consume(SEMICOLON, "Expect ';' after variable declaration.")
+	if semicolonConsumeErr != nil {
+		p.lx.ParseError(p.peek(), semicolonConsumeErr.Error())
+		return nil, errors.New(semicolonConsumeErr.Error())
+	}
+	return Var{name: name, initializer: initializer}, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -155,6 +185,9 @@ func (p *Parser) primary() (Expr, error) {
 	}
 	if p.match([]TokenType{NUMBER, STRING}) {
 		return Literal{p.previous().literal}, nil
+	}
+	if p.match([]TokenType{IDENTIFIER}) {
+		return Variable{name: p.previous()}, nil
 	}
 
 	if p.match([]TokenType{LEFT_PAREN}) {
