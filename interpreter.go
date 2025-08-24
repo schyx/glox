@@ -9,6 +9,7 @@ type Interpreter struct {
 	output   any
 	err      error
 	badToken Token
+	env      Environment
 	lx       *Lox
 }
 
@@ -23,14 +24,14 @@ func (interp *Interpreter) Interpret(statements []Stmt) {
 }
 
 func (interp *Interpreter) visitBinary(expr Binary) {
-	left, err, token := evalExpr(expr.left)
+	left, err, token := evalExpr(expr.left, interp.env)
 	if err != nil {
 		interp.output = 0
 		interp.err = err
 		interp.badToken = token
 		return
 	}
-	right, err, token := evalExpr(expr.right)
+	right, err, token := evalExpr(expr.right, interp.env)
 	if err != nil {
 		interp.output = 0
 		interp.err = err
@@ -59,27 +60,27 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 		interp.getReturnVal(leftVal <= rightVal, err, expr.operator)
 	case MINUS:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		interp.getReturnVal(leftVal - rightVal, err, expr.operator)
+		interp.getReturnVal(leftVal-rightVal, err, expr.operator)
 	case SLASH:
 		leftVal, rightVal, err := toFloatPair(left, right)
 		if err == nil && rightVal == 0 {
 			interp.getReturnVal(0, errors.New("Dividing by zero"), expr.operator)
 			return
 		}
-		interp.getReturnVal(leftVal / rightVal, err, expr.operator)
+		interp.getReturnVal(leftVal/rightVal, err, expr.operator)
 	case STAR:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		interp.getReturnVal(leftVal * rightVal, err, expr.operator)
+		interp.getReturnVal(leftVal*rightVal, err, expr.operator)
 	case PLUS:
 		// numeric case
 		leftVal, rightVal, err := toFloatPair(left, right)
 		if err == nil {
-			interp.getReturnVal(leftVal + rightVal, err, expr.operator)
+			interp.getReturnVal(leftVal+rightVal, err, expr.operator)
 			return
 		}
 		// string case
 		leftString, rightString, err := toStringPair(left, right)
-		interp.getReturnVal(leftString + rightString, err, expr.operator)
+		interp.getReturnVal(leftString+rightString, err, expr.operator)
 	}
 }
 
@@ -123,7 +124,7 @@ func toFloatPair(left any, right any) (float64, float64, error) {
 }
 
 func (interp *Interpreter) visitGrouping(expr Grouping) {
-	interp.output, interp.err, interp.badToken = evalExpr(expr.expression)
+	interp.output, interp.err, interp.badToken = evalExpr(expr.expression, interp.env)
 }
 
 func (interp *Interpreter) visitLiteral(expr Literal) {
@@ -131,7 +132,7 @@ func (interp *Interpreter) visitLiteral(expr Literal) {
 }
 
 func (interp *Interpreter) visitUnary(expr Unary) {
-	right, err, token := evalExpr(expr.right)
+	right, err, token := evalExpr(expr.right, interp.env)
 	if err != nil {
 		interp.output = 0
 		interp.err = err
@@ -180,8 +181,30 @@ func (interp *Interpreter) visitPrint(stmt Print) {
 	interp.output = nil
 }
 
-func evalExpr(expr Expr) (any, error, Token) {
-	dummyInterp := Interpreter{}
+func (interp *Interpreter) visitVar(stmt Var) {
+	var value any
+	if stmt.initializer != nil {
+		interp.evaluate(stmt.initializer)
+		if interp.err != nil {
+			return
+		}
+		value = interp.output
+	}
+	interp.env.define(stmt.name.lexeme, value)
+}
+
+func (interp *Interpreter) visitVariable(expr Variable) {
+	val, err := interp.env.get(expr.name)
+	if err != nil {
+		interp.output = nil
+		interp.err = err
+		interp.badToken = expr.name
+	}
+	interp.output = val
+}
+
+func evalExpr(expr Expr, env Environment) (any, error, Token) {
+	dummyInterp := Interpreter{env: env}
 	dummyInterp.evaluate(expr)
 	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
 }
