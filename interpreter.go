@@ -61,6 +61,10 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 		interp.getReturnVal(leftVal - rightVal, err, expr.operator)
 	case SLASH:
 		leftVal, rightVal, err := toFloatPair(left, right)
+		if err == nil && rightVal == 0 {
+			interp.getReturnVal(0, errors.New("Dividing by zero"), expr.operator)
+			return
+		}
 		interp.getReturnVal(leftVal / rightVal, err, expr.operator)
 	case STAR:
 		leftVal, rightVal, err := toFloatPair(left, right)
