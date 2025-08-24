@@ -9,7 +9,8 @@ import (
 )
 
 type Lox struct {
-	hadError bool
+	hadError        bool
+	hadRuntimeError bool
 }
 
 func main() {
@@ -38,6 +39,9 @@ func (lx *Lox) runFile(path string) {
 	if lx.hadError {
 		os.Exit(65)
 	}
+	if lx.hadRuntimeError {
+		os.Exit(70)
+	}
 }
 
 func (lx *Lox) runPrompt() {
@@ -60,9 +64,8 @@ func (lx *Lox) run(source string) {
 	if err != nil {
 		return
 	}
-	astp := AstPrinter{}
-	astp.Print(expr)
-	fmt.Printf("%s\n", astp.output)
+	interpreter := Interpreter{lx: lx}
+	interpreter.Interpret(expr)
 }
 
 func (lx *Lox) Error(line int, message string) {
@@ -80,4 +83,9 @@ func (lx *Lox) ParseError(token Token, message string) {
 	} else {
 		lx.report(token.line, fmt.Sprintf(" at '%s'", token.lexeme), message)
 	}
+}
+
+func (lx *Lox) RuntimeError(token Token, err error) {
+	lx.hadRuntimeError = true
+	fmt.Printf("%s\n[line %d]\n", err.Error(), token.line)
 }
