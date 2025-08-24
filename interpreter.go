@@ -46,102 +46,42 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 		interp.err = nil
 	case GREATER:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal > rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal > rightVal, err, expr.operator)
 	case GREATER_EQUAL:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal >= rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal >= rightVal, err, expr.operator)
 	case LESS:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal < rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal < rightVal, err, expr.operator)
 	case LESS_EQUAL:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal <= rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal <= rightVal, err, expr.operator)
 	case MINUS:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal - rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal - rightVal, err, expr.operator)
 	case SLASH:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal / rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal / rightVal, err, expr.operator)
 	case STAR:
 		leftVal, rightVal, err := toFloatPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftVal * rightVal
-			interp.err = nil
-		}
+		interp.getReturnVal(leftVal * rightVal, err, expr.operator)
 	case PLUS:
 		// numeric case
 		leftVal, rightVal, err := toFloatPair(left, right)
 		if err == nil {
-			interp.output = leftVal + rightVal
-			interp.err = nil
-			interp.badToken = expr.operator
+			interp.getReturnVal(leftVal + rightVal, err, expr.operator)
 			return
 		}
 		// string case
 		leftString, rightString, err := toStringPair(left, right)
-		if err != nil {
-			interp.output = 0
-			interp.err = err
-			interp.badToken = expr.operator
-			return
-		} else {
-			interp.output = leftString + rightString
-			interp.err = nil
-		}
+		interp.getReturnVal(leftString + rightString, err, expr.operator)
 	}
+}
+
+func (interp *Interpreter) getReturnVal(okVal any, err error, badToken Token) {
+	interp.err = err
+	interp.badToken = badToken
+	interp.output = okVal
 }
 
 func isEqual(left any, right any) bool {
