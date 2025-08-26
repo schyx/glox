@@ -57,7 +57,7 @@ func (p *Parser) declaration() (Stmt, error) {
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
-	name, identifierConsumeErr := p.consume(IDENTIFIER, "Expect variable name.") // TODO: refactor `consume` to throw error
+	name, identifierConsumeErr := p.consume(IDENTIFIER, "Expect variable name.")
 	if identifierConsumeErr != nil {
 		p.lx.ParseError(p.peek(), identifierConsumeErr.Error())
 		return nil, errors.New(identifierConsumeErr.Error())
