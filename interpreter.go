@@ -9,7 +9,7 @@ type Interpreter struct {
 	output   any
 	err      error
 	badToken Token
-	env      Environment
+	env      *Environment
 	lx       *Lox
 }
 
@@ -26,14 +26,14 @@ func (interp *Interpreter) Interpret(statements []Stmt) {
 func (interp *Interpreter) visitBinary(expr Binary) {
 	left, err, token := evalExpr(expr.left, interp.env)
 	if err != nil {
-		interp.output = 0
+		interp.output = nil
 		interp.err = err
 		interp.badToken = token
 		return
 	}
 	right, err, token := evalExpr(expr.right, interp.env)
 	if err != nil {
-		interp.output = 0
+		interp.output = nil
 		interp.err = err
 		interp.badToken = token
 		return
@@ -134,7 +134,7 @@ func (interp *Interpreter) visitLiteral(expr Literal) {
 func (interp *Interpreter) visitUnary(expr Unary) {
 	right, err, token := evalExpr(expr.right, interp.env)
 	if err != nil {
-		interp.output = 0
+		interp.output = nil
 		interp.err = err
 		interp.badToken = token
 		return
@@ -171,24 +171,33 @@ func (interp *Interpreter) execute(stmt Stmt) {
 }
 
 func (interp *Interpreter) visitExpression(stmt Expression) {
-	interp.evaluate(stmt.expr)
-	interp.output = nil
+	_, err, badToken := evalExpr(stmt.expr, interp.env)
+	if err != nil {
+		interp.err = err
+		interp.badToken = badToken
+	}
 }
 
 func (interp *Interpreter) visitPrint(stmt Print) {
-	interp.evaluate(stmt.expr)
-	fmt.Printf("%v\n", interp.output)
-	interp.output = nil
+	val, err, badToken := evalExpr(stmt.expr, interp.env)
+	if err != nil {
+		interp.err = err
+		interp.badToken = badToken
+		return
+	}
+	fmt.Printf("%v\n", val)
 }
 
 func (interp *Interpreter) visitVar(stmt Var) {
 	var value any
 	if stmt.initializer != nil {
-		interp.evaluate(stmt.initializer)
-		if interp.err != nil {
+		val, err, badToken := evalExpr(stmt.initializer, interp.env)
+		if err != nil {
+			interp.err = err
+			interp.badToken = badToken
 			return
 		}
-		value = interp.output
+		value = val
 	}
 	interp.env.define(stmt.name.lexeme, value)
 }
@@ -203,7 +212,7 @@ func (interp *Interpreter) visitVariable(expr Variable) {
 	interp.output = val
 }
 
-func evalExpr(expr Expr, env Environment) (any, error, Token) {
+func evalExpr(expr Expr, env *Environment) (any, error, Token) {
 	dummyInterp := Interpreter{env: env}
 	dummyInterp.evaluate(expr)
 	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken

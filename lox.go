@@ -64,7 +64,7 @@ func (lx *Lox) run(source string) {
 	if err != nil {
 		return
 	}
-	interpreter := Interpreter{env: Environment{values: make(map[string]any)}, lx: lx}
+	interpreter := Interpreter{env: &Environment{values: make(map[string]any)}, lx: lx}
 	interpreter.Interpret(statements)
 }
 
