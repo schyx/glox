@@ -24,7 +24,29 @@ func (p *Parser) Parse() ([]Stmt, error) {
 }
 
 func (p *Parser) expression() (Expr, error) {
-	return p.equality()
+	return p.assignment()
+}
+
+func (p *Parser) assignment() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+	if p.match([]TokenType{EQUAL}) {
+		equals := p.previous()
+		value, err := p.assignment()
+		if err != nil {
+			return nil, err
+		}
+		switch t := expr.(type) {
+		case Variable:
+			name := t.name
+			return Assign{name: name, value: value}, nil
+		default:
+			p.lx.ParseError(equals, "Invalid assignment target.")
+		}
+	}
+	return expr, nil
 }
 
 func (p *Parser) declaration() (Stmt, error) {
@@ -61,6 +83,13 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match([]TokenType{PRINT}) {
 		return p.printStatement()
 	}
+	if p.match([]TokenType{LEFT_BRACE}) {
+		statements, err := p.block()
+		if err != nil {
+			return nil, err
+		}
+		return Block{statments: statements}, nil
+	}
 	return p.expressionStatement()
 }
 
@@ -88,6 +117,23 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		return nil, errors.New(consumeErr.Error())
 	}
 	return Expression{value}, nil
+}
+
+func (p *Parser) block() ([]Stmt, error) {
+	statements := make([]Stmt, 0)
+	for !p.check(RIGHT_BRACE) && !p.isAtEnd() {
+		statement, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+		statements = append(statements, statement)
+	}
+	_, consumeErr := p.consume(RIGHT_BRACE, "Expect '}' after block.")
+	if consumeErr != nil {
+		p.lx.ParseError(p.peek(), consumeErr.Error())
+		return nil, errors.New(consumeErr.Error())
+	}
+	return statements, nil
 }
 
 func (p *Parser) equality() (Expr, error) {

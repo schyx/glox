@@ -170,11 +170,29 @@ func (interp *Interpreter) execute(stmt Stmt) {
 	stmt.accept(interp)
 }
 
+func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
+	previous := interp.env
+	defer func() { interp.env = previous }()
+
+	interp.env = env
+	for _, statement := range statements {
+		interp.execute(statement)
+		if interp.err != nil {
+			return
+		}
+	}
+}
+
+func (interp *Interpreter) visitBlock(stmt Block) {
+	interp.executeBlock(stmt.statments, &Environment{values: make(map[string]any), enclosing: interp.env, lx: interp.lx})
+}
+
 func (interp *Interpreter) visitExpression(stmt Expression) {
 	_, err, badToken := evalExpr(stmt.expr, interp.env)
 	if err != nil {
 		interp.err = err
 		interp.badToken = badToken
+		return
 	}
 }
 
@@ -202,12 +220,30 @@ func (interp *Interpreter) visitVar(stmt Var) {
 	interp.env.define(stmt.name.lexeme, value)
 }
 
+func (interp *Interpreter) visitAssign(expr Assign) {
+	value, err, badToken := evalExpr(expr.value, interp.env)
+	if err != nil {
+		interp.output = NIL
+		interp.err = err
+		interp.badToken = badToken
+		return
+	}
+	assignErr := interp.env.assign(expr.name, value)
+	if assignErr != nil {
+		interp.err = err
+		interp.badToken = expr.name
+		return
+	}
+	interp.output = value
+}
+
 func (interp *Interpreter) visitVariable(expr Variable) {
 	val, err := interp.env.get(expr.name)
 	if err != nil {
 		interp.output = nil
 		interp.err = err
 		interp.badToken = expr.name
+		return
 	}
 	interp.output = val
 }

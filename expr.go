@@ -4,6 +4,13 @@ type Expr interface {
 	accept(ExprVisitor)
 }
 
+type Assign struct {
+	name  Token
+	value Expr
+}
+
+func (a Assign) accept(v ExprVisitor) { v.visitAssign(a) }
+
 type Binary struct {
 	left     Expr
 	operator Token
@@ -35,9 +42,10 @@ type Variable struct {
 	name Token
 }
 
-func (variable Variable) accept(v ExprVisitor) {v.visitVariable(variable) }
+func (variable Variable) accept(v ExprVisitor) { v.visitVariable(variable) }
 
 type ExprVisitor interface {
+	visitAssign(Assign)
 	visitBinary(Binary)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
