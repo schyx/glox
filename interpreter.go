@@ -15,9 +15,9 @@ type Interpreter struct {
 
 func (interp *Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
-		interp.execute(statement)
-		if interp.err != nil {
-			interp.lx.RuntimeError(interp.badToken, interp.err)
+		_, err, badToken := execStmt(statement, interp.env)
+		if err != nil {
+			interp.lx.RuntimeError(badToken, err)
 			return
 		}
 	}
@@ -166,25 +166,35 @@ func (interp *Interpreter) evaluate(expr Expr) {
 	expr.accept(interp)
 }
 
+func evalExpr(expr Expr, env *Environment) (any, error, Token) {
+	dummyInterp := Interpreter{env: env}
+	dummyInterp.evaluate(expr)
+	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
+}
+
 func (interp *Interpreter) execute(stmt Stmt) {
 	stmt.accept(interp)
 }
 
-func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
-	previous := interp.env
-	defer func() { interp.env = previous }()
+func execStmt(stmt Stmt, env *Environment) (any, error, Token) {
+	dummyInterp := Interpreter{env: env}
+	dummyInterp.execute(stmt)
+	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
+}
 
-	interp.env = env
+func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 	for _, statement := range statements {
-		interp.execute(statement)
+		_, err, badToken := execStmt(statement, env)
 		if interp.err != nil {
+			interp.err = err
+			interp.badToken = badToken
 			return
 		}
 	}
 }
 
 func (interp *Interpreter) visitBlock(stmt Block) {
-	interp.executeBlock(stmt.statments, &Environment{values: make(map[string]any), enclosing: interp.env, lx: interp.lx})
+	interp.executeBlock(stmt.statments, &Environment{values: make(map[string]any), enclosing: interp.env})
 }
 
 func (interp *Interpreter) visitExpression(stmt Expression) {
@@ -246,12 +256,6 @@ func (interp *Interpreter) visitVariable(expr Variable) {
 		return
 	}
 	interp.output = val
-}
-
-func evalExpr(expr Expr, env *Environment) (any, error, Token) {
-	dummyInterp := Interpreter{env: env}
-	dummyInterp.evaluate(expr)
-	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
 }
 
 func toFloat(val any) (float64, error) {

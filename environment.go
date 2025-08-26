@@ -7,7 +7,6 @@ import (
 type Environment struct {
 	values    map[string]any
 	enclosing *Environment
-	lx        *Lox
 }
 
 func (env *Environment) assign(name Token, value any) error {
