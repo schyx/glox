@@ -282,6 +282,26 @@ func (interp *Interpreter) visitVar(stmt Var) {
 	interp.env.define(stmt.name.lexeme, value)
 }
 
+func (interp *Interpreter) visitWhile(stmt While) {
+	for {
+		conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env)
+		if conditionErr != nil {
+			interp.err = conditionErr
+			interp.badToken = conditionBadToken
+			return
+		}
+		if !isTruthy(conditionVal) {
+			return
+		}
+		_, bodyErr, bodyBadToken := execStmt(stmt.body, interp.env)
+		if bodyErr != nil {
+			interp.err = bodyErr
+			interp.badToken = bodyBadToken
+			return
+		}
+	}
+}
+
 func (interp *Interpreter) visitAssign(expr Assign) {
 	value, err, badToken := evalExpr(expr.value, interp.env)
 	if err != nil {

@@ -37,10 +37,18 @@ type Var struct {
 
 func (variable Var) accept(v StmtVisitor) { v.visitVar(variable) }
 
+type While struct {
+	condition Expr
+	body      Stmt
+}
+
+func (w While) accept(v StmtVisitor) { v.visitWhile(w) }
+
 type StmtVisitor interface {
 	visitBlock(Block)
 	visitExpression(Expression)
 	visitIf(If)
 	visitPrint(Print)
 	visitVar(Var)
+	visitWhile(While)
 }

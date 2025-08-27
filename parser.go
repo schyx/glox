@@ -111,12 +111,37 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 	return Var{name: name, initializer: initializer}, nil
 }
 
+func (p *Parser) whileStatement() (Stmt, error) {
+	_, leftParenConsumeErr := p.consume(LEFT_PAREN, "Expect '(' after 'while'.")
+	if leftParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftParenConsumeErr.Error())
+		return nil, leftParenConsumeErr
+	}
+	condition, conditionErr := p.expression()
+	if conditionErr != nil {
+		return nil, conditionErr
+	}
+	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect ')' after condition.")
+	if rightParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), rightParenConsumeErr.Error())
+		return nil, rightParenConsumeErr
+	}
+	body, stmtErr := p.statement()
+	if stmtErr != nil {
+		return nil, stmtErr
+	}
+	return While{condition: condition, body: body}, nil
+}
+
 func (p *Parser) statement() (Stmt, error) {
 	if p.match([]TokenType{IF}) {
-		return p.ifStatement();
+		return p.ifStatement()
 	}
 	if p.match([]TokenType{PRINT}) {
 		return p.printStatement()
+	}
+	if p.match([]TokenType{WHILE}) {
+		return p.whileStatement()
 	}
 	if p.match([]TokenType{LEFT_BRACE}) {
 		statements, err := p.block()
@@ -131,6 +156,7 @@ func (p *Parser) statement() (Stmt, error) {
 func (p *Parser) ifStatement() (Stmt, error) {
 	_, leftParenConsumeErr := p.consume(LEFT_PAREN, "Expect '(' after 'if'.")
 	if leftParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftParenConsumeErr.Error())
 		return nil, leftParenConsumeErr
 	}
 	condition, conditionErr := p.expression()
@@ -139,6 +165,7 @@ func (p *Parser) ifStatement() (Stmt, error) {
 	}
 	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect '(' after 'if'.")
 	if rightParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), rightParenConsumeErr.Error())
 		return nil, rightParenConsumeErr
 	}
 
