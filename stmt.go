@@ -14,6 +14,8 @@ type Expression struct {
 	expr Expr
 }
 
+func (e Expression) accept(v StmtVisitor) { v.visitExpression(e) }
+
 type If struct {
 	condition  Expr
 	thenBranch Stmt
@@ -21,8 +23,6 @@ type If struct {
 }
 
 func (i If) accept(v StmtVisitor) { v.visitIf(i) }
-
-func (e Expression) accept(v StmtVisitor) { v.visitExpression(e) }
 
 type Print struct {
 	expr Expr
