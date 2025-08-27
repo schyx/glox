@@ -134,6 +134,9 @@ func (p *Parser) whileStatement() (Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
+	if p.match([]TokenType{FOR}) {
+		return p.forStatement()
+	}
 	if p.match([]TokenType{IF}) {
 		return p.ifStatement()
 	}
@@ -151,6 +154,75 @@ func (p *Parser) statement() (Stmt, error) {
 		return Block{statments: statements}, nil
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) forStatement() (Stmt, error) {
+	_, leftParenConsumeErr := p.consume(LEFT_PAREN, "Expect '(' after 'for'.")
+	if leftParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftParenConsumeErr.Error())
+		return nil, leftParenConsumeErr
+	}
+	// Handle initializer part of for loop
+	var initializer Stmt
+	var initializerError error
+	if p.match([]TokenType{SEMICOLON}) {
+		initializer = nil
+	} else if (p.match([]TokenType{VAR})) {
+		initializer, initializerError = p.varDeclaration()
+		if initializerError != nil {
+			return nil, initializerError
+		}
+	} else {
+		initializer, initializerError = p.expressionStatement()
+		if initializerError != nil {
+			return nil, initializerError
+		}
+	}
+	// Handle condition check part of for loop
+	var condition Expr
+	var conditionError error
+	if !p.check(SEMICOLON) {
+		condition, conditionError = p.expression()
+		if conditionError != nil {
+			return nil, conditionError
+		}
+	}
+	_, secondSemicolonConsumeErr := p.consume(SEMICOLON, "Expect ';' after a loop condition.")
+	if secondSemicolonConsumeErr != nil {
+		p.lx.ParseError(p.peek(), secondSemicolonConsumeErr.Error())
+		return nil, secondSemicolonConsumeErr
+	}
+	// Handle increment
+	var increment Expr
+	var incrementErr error
+	if !p.check(RIGHT_PAREN) {
+		increment, incrementErr = p.expression()
+		if incrementErr != nil {
+			return nil, incrementErr
+		}
+	}
+	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect ')' after for clauses.")
+	if rightParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), rightParenConsumeErr.Error())
+		return nil, rightParenConsumeErr
+	}
+	// Handle body of for loop
+	body, bodyErr := p.statement()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+	// Desugar
+	if increment != nil {
+		body = Block{[]Stmt{body, Expression{expr: increment}}}
+	}
+	if condition == nil {
+		condition = Literal{value: true}
+	}
+	body = While{condition: condition, body: body}
+	if initializer != nil {
+		body = Block{statments: []Stmt{initializer, body}}
+	}
+	return body, nil
 }
 
 func (p *Parser) ifStatement() (Stmt, error) {
