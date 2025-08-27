@@ -31,6 +31,14 @@ type Literal struct {
 
 func (l Literal) accept(v ExprVisitor) { v.visitLiteral(l) }
 
+type Logical struct {
+	left     Expr
+	operator Token
+	right    Expr
+}
+
+func (l Logical) accept(v ExprVisitor) { v.visitLogical(l) }
+
 type Unary struct {
 	operator Token
 	right    Expr
@@ -49,6 +57,7 @@ type ExprVisitor interface {
 	visitBinary(Binary)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
+	visitLogical(Logical)
 	visitUnary(Unary)
 	visitVariable(Variable)
 }

@@ -14,6 +14,14 @@ type Expression struct {
 	expr Expr
 }
 
+type If struct {
+	condition  Expr
+	thenBranch Stmt
+	elseBranch Stmt
+}
+
+func (i If) accept(v StmtVisitor) { v.visitIf(i) }
+
 func (e Expression) accept(v StmtVisitor) { v.visitExpression(e) }
 
 type Print struct {
@@ -32,6 +40,7 @@ func (variable Var) accept(v StmtVisitor) { v.visitVar(variable) }
 type StmtVisitor interface {
 	visitBlock(Block)
 	visitExpression(Expression)
+	visitIf(If)
 	visitPrint(Print)
 	visitVar(Var)
 }

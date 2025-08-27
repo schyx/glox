@@ -28,7 +28,7 @@ func (p *Parser) expression() (Expr, error) {
 }
 
 func (p *Parser) assignment() (Expr, error) {
-	expr, err := p.equality()
+	expr, err := p.or()
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,38 @@ func (p *Parser) assignment() (Expr, error) {
 		default:
 			p.lx.ParseError(equals, "Invalid assignment target.")
 		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) or() (Expr, error) {
+	expr, err := p.and()
+	if err != nil {
+		return nil, err
+	}
+	for p.match([]TokenType{OR}) {
+		operator := p.previous()
+		right, err := p.and()
+		if err != nil {
+			return nil, err
+		}
+		expr = Logical{left: expr, operator: operator, right: right}
+	}
+	return expr, nil
+}
+
+func (p *Parser) and() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+	for p.match([]TokenType{AND}) {
+		operator := p.previous()
+		right, err := p.equality()
+		if err != nil {
+			return nil, err
+		}
+		expr = Logical{left: expr, operator: operator, right: right}
 	}
 	return expr, nil
 }
@@ -80,6 +112,9 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
+	if p.match([]TokenType{IF}) {
+		return p.ifStatement();
+	}
 	if p.match([]TokenType{PRINT}) {
 		return p.printStatement()
 	}
@@ -91,6 +126,35 @@ func (p *Parser) statement() (Stmt, error) {
 		return Block{statments: statements}, nil
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) ifStatement() (Stmt, error) {
+	_, leftParenConsumeErr := p.consume(LEFT_PAREN, "Expect '(' after 'if'.")
+	if leftParenConsumeErr != nil {
+		return nil, leftParenConsumeErr
+	}
+	condition, conditionErr := p.expression()
+	if conditionErr != nil {
+		return nil, conditionErr
+	}
+	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect '(' after 'if'.")
+	if rightParenConsumeErr != nil {
+		return nil, rightParenConsumeErr
+	}
+
+	thenBranch, thenError := p.statement()
+	if thenError != nil {
+		return nil, thenError
+	}
+	var elseBranch Stmt
+	if p.match([]TokenType{ELSE}) {
+		var elseErr error
+		elseBranch, elseErr = p.statement()
+		if elseErr != nil {
+			return nil, elseErr
+		}
+	}
+	return If{condition: condition, thenBranch: thenBranch, elseBranch: elseBranch}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {

@@ -131,6 +131,34 @@ func (interp *Interpreter) visitLiteral(expr Literal) {
 	interp.output = expr.value
 }
 
+func (interp *Interpreter) visitLogical(expr Logical) {
+	left, leftErr, leftBadToken := evalExpr(expr.left, interp.env)
+	if leftErr != nil {
+		interp.err = leftErr
+		interp.badToken = leftBadToken
+		return
+	}
+	if expr.operator.tokenType == OR {
+		if isTruthy(left) {
+			interp.output = left
+			return
+		}
+	} else {
+		if !isTruthy(left) {
+			interp.output = left
+			return
+		}
+	}
+
+	right, rightErr, rightBadToken := evalExpr(expr.right, interp.env)
+	if rightErr != nil {
+		interp.err = rightErr
+		interp.badToken = rightBadToken
+		return
+	}
+	interp.output = right
+}
+
 func (interp *Interpreter) visitUnary(expr Unary) {
 	right, err, token := evalExpr(expr.right, interp.env)
 	if err != nil {
@@ -203,6 +231,30 @@ func (interp *Interpreter) visitExpression(stmt Expression) {
 		interp.err = err
 		interp.badToken = badToken
 		return
+	}
+}
+
+func (interp *Interpreter) visitIf(stmt If) {
+	conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env)
+	if conditionErr != nil {
+		interp.err = conditionErr
+		interp.badToken = conditionBadToken
+		return
+	}
+	if isTruthy(conditionVal) {
+		_, execErr, execBadToken := execStmt(stmt.thenBranch, interp.env)
+		if execErr != nil {
+			interp.err = execErr
+			interp.badToken = execBadToken
+			return
+		}
+	} else {
+		_, execErr, execBadToken := execStmt(stmt.elseBranch, interp.env)
+		if execErr != nil {
+			interp.err = execErr
+			interp.badToken = execBadToken
+			return
+		}
 	}
 }
 
