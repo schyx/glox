@@ -16,6 +16,14 @@ type Expression struct {
 
 func (e Expression) accept(v StmtVisitor) { v.visitExpression(e) }
 
+type Function struct {
+	name   Token
+	params []Token
+	body   []Stmt
+}
+
+func (f Function) accept(v StmtVisitor) { v.visitFunction(f) }
+
 type If struct {
 	condition  Expr
 	thenBranch Stmt
@@ -29,6 +37,13 @@ type Print struct {
 }
 
 func (p Print) accept(v StmtVisitor) { v.visitPrint(p) }
+
+type Return struct {
+	keyword Token
+	value   Expr
+}
+
+func (r Return) accept(v StmtVisitor) { v.visitReturn(r) }
 
 type Var struct {
 	name        Token
@@ -47,8 +62,10 @@ func (w While) accept(v StmtVisitor) { v.visitWhile(w) }
 type StmtVisitor interface {
 	visitBlock(Block)
 	visitExpression(Expression)
+	visitFunction(Function)
 	visitIf(If)
 	visitPrint(Print)
+	visitReturn(Return)
 	visitVar(Var)
 	visitWhile(While)
 }

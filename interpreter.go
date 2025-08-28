@@ -8,16 +8,18 @@ import (
 // --------------- INTERPRETER ---------------
 
 type Interpreter struct {
-	output   any
-	err      error
-	badToken Token
-	env      *Environment
-	lx       *Lox
+	output      any
+	err         error
+	badToken    Token
+	checkReturn bool
+	returnVal   any
+	env         *Environment
+	lx          *Lox
 }
 
 func (interp *Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
-		_, err, badToken := execStmt(statement, interp.env)
+		_, _, err, badToken := execStmt(statement, interp.env)
 		if err != nil {
 			interp.lx.RuntimeError(badToken, err)
 			return
@@ -31,10 +33,10 @@ func (interp *Interpreter) execute(stmt Stmt) {
 	stmt.accept(interp)
 }
 
-func execStmt(stmt Stmt, env *Environment) (any, error, Token) {
+func execStmt(stmt Stmt, env *Environment) (any, bool, error, Token) {
 	dummyInterp := Interpreter{env: env}
 	dummyInterp.execute(stmt)
-	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
+	return dummyInterp.returnVal, dummyInterp.checkReturn, dummyInterp.err, dummyInterp.badToken
 }
 
 func (interp *Interpreter) visitBlock(stmt Block) {
@@ -43,10 +45,15 @@ func (interp *Interpreter) visitBlock(stmt Block) {
 
 func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 	for _, statement := range statements {
-		_, err, badToken := execStmt(statement, env)
+		returnVal, checkReturn, err, badToken := execStmt(statement, env)
 		if interp.err != nil {
 			interp.err = err
 			interp.badToken = badToken
+			return
+		}
+		interp.returnVal = returnVal
+		interp.checkReturn = checkReturn
+		if interp.checkReturn {
 			return
 		}
 	}
@@ -61,6 +68,11 @@ func (interp *Interpreter) visitExpression(stmt Expression) {
 	}
 }
 
+func (interp *Interpreter) visitFunction(stmt Function) {
+	function := LoxFunction{declaration: stmt, env: interp.env}
+	interp.env.define(stmt.name.lexeme, function)
+}
+
 func (interp *Interpreter) visitIf(stmt If) {
 	conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env)
 	if conditionErr != nil {
@@ -69,19 +81,23 @@ func (interp *Interpreter) visitIf(stmt If) {
 		return
 	}
 	if isTruthy(conditionVal) {
-		_, execErr, execBadToken := execStmt(stmt.thenBranch, interp.env)
+		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.thenBranch, interp.env)
 		if execErr != nil {
 			interp.err = execErr
 			interp.badToken = execBadToken
 			return
 		}
-	} else {
-		_, execErr, execBadToken := execStmt(stmt.elseBranch, interp.env)
+		interp.returnVal = returnVal
+		interp.checkReturn = checkReturn
+	} else if stmt.elseBranch != nil {
+		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.elseBranch, interp.env)
 		if execErr != nil {
 			interp.err = execErr
 			interp.badToken = execBadToken
 			return
 		}
+		interp.returnVal = returnVal
+		interp.checkReturn = checkReturn
 	}
 }
 
@@ -93,6 +109,22 @@ func (interp *Interpreter) visitPrint(stmt Print) {
 		return
 	}
 	fmt.Printf("%v\n", val)
+}
+
+func (interp *Interpreter) visitReturn(stmt Return) {
+	var value any
+	if stmt.value != nil {
+		var valueErr error
+		var valueBadToken Token
+		value, valueErr, valueBadToken = evalExpr(stmt.value, interp.env)
+		if valueErr != nil {
+			interp.err = valueErr
+			interp.badToken = valueBadToken
+			return
+		}
+	}
+	interp.returnVal = value
+	interp.checkReturn = true
 }
 
 func (interp *Interpreter) visitVar(stmt Var) {
@@ -120,12 +152,14 @@ func (interp *Interpreter) visitWhile(stmt While) {
 		if !isTruthy(conditionVal) {
 			return
 		}
-		_, bodyErr, bodyBadToken := execStmt(stmt.body, interp.env)
+		returnVal, checkReturn, bodyErr, bodyBadToken := execStmt(stmt.body, interp.env)
 		if bodyErr != nil {
 			interp.err = bodyErr
 			interp.badToken = bodyBadToken
 			return
 		}
+		interp.returnVal = returnVal
+		interp.checkReturn = checkReturn
 	}
 }
 
@@ -215,6 +249,39 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 		// string case
 		leftString, rightString, err := toStringPair(left, right)
 		interp.getReturnVal(leftString+rightString, err, expr.operator)
+	}
+}
+
+func (interp *Interpreter) visitCall(expr Call) {
+	callee, calleeErr, calleeBadToken := evalExpr(expr.callee, interp.env)
+	if calleeErr != nil {
+		interp.err = calleeErr
+		interp.badToken = calleeBadToken
+	}
+	arguments := make([]any, 0)
+	for _, argument := range expr.arguments {
+		arg, argErr, argBadToken := evalExpr(argument, interp.env)
+		if argErr != nil {
+			interp.err = argErr
+			interp.badToken = argBadToken
+		}
+		arguments = append(arguments, arg)
+	}
+	switch function := callee.(type) {
+	case LoxCallable:
+		if len(arguments) != function.arity() {
+			err := fmt.Errorf("Expected %d arguments but got %d.", function.arity(), len(arguments))
+			interp.lx.RuntimeError(expr.paren, err)
+			interp.err = err
+			interp.badToken = expr.paren
+			return
+		}
+		interp.output = function.call(interp, arguments)
+	default:
+		err := fmt.Errorf("Can only call functions and classes")
+		interp.lx.RuntimeError(expr.paren, err)
+		interp.err = err
+		interp.badToken = expr.paren
 	}
 }
 

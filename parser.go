@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 )
 
@@ -29,10 +30,55 @@ func (p *Parser) Parse() ([]Stmt, error) {
 // --------------- STATEMENTS ---------------
 
 func (p *Parser) declaration() (Stmt, error) {
+	if p.match([]TokenType{FUN}) {
+		return p.function("function")
+	}
 	if p.match([]TokenType{VAR}) {
 		return p.varDeclaration()
 	}
 	return p.statement()
+}
+
+func (p *Parser) function(kind string) (Stmt, error) {
+	name, identifierConsumeErr := p.consume(IDENTIFIER, fmt.Sprintf("Expect %s name.", kind))
+	if identifierConsumeErr != nil {
+		p.lx.ParseError(p.peek(), identifierConsumeErr.Error())
+		return nil, identifierConsumeErr
+	}
+	_, leftParenConsumeErr := p.consume(LEFT_PAREN, fmt.Sprintf("Expect '(' after %s name.", kind))
+	if leftParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftParenConsumeErr.Error())
+		return nil, identifierConsumeErr
+	}
+	parameters := make([]Token, 0)
+	if !p.check(RIGHT_PAREN) {
+		for isComma := true; isComma; isComma = p.match([]TokenType{COMMA}) {
+			if len(parameters) >= 255 {
+				p.lx.ParseError(p.peek(), "Can't have more than 255 parameters.")
+			}
+			param, paramConsumeErr := p.consume(IDENTIFIER, "Expect parameter name.")
+			if paramConsumeErr != nil {
+				p.lx.ParseError(p.peek(), paramConsumeErr.Error())
+				return nil, paramConsumeErr
+			}
+			parameters = append(parameters, param)
+		}
+	}
+	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect ')' after parameters.")
+	if rightParenConsumeErr != nil {
+		p.lx.ParseError(p.peek(), rightParenConsumeErr.Error())
+		return nil, rightParenConsumeErr
+	}
+	_, leftBraceConsumeErr := p.consume(LEFT_BRACE, fmt.Sprintf("Expect '{' before %s body.", kind))
+	if leftBraceConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftBraceConsumeErr.Error())
+		return nil, leftBraceConsumeErr
+	}
+	body, bodyErr := p.block()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+	return Function{name: name, params: parameters, body: body}, nil
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
@@ -66,6 +112,9 @@ func (p *Parser) statement() (Stmt, error) {
 	}
 	if p.match([]TokenType{PRINT}) {
 		return p.printStatement()
+	}
+	if p.match([]TokenType{RETURN}) {
+		return p.returnStatement()
 	}
 	if p.match([]TokenType{WHILE}) {
 		return p.whileStatement()
@@ -190,6 +239,24 @@ func (p *Parser) printStatement() (Stmt, error) {
 		return nil, errors.New(consumeErr.Error())
 	}
 	return Print{value}, nil
+}
+
+func (p *Parser) returnStatement() (Stmt, error) {
+	keyword := p.previous()
+	var value Expr
+	var valueErr error
+	if !p.check(SEMICOLON) {
+		value, valueErr = p.expression()
+		if valueErr != nil {
+			return nil, valueErr
+		}
+	}
+	_, semicolonConsumeErr := p.consume(SEMICOLON, "Expect ';' after return value.")
+	if semicolonConsumeErr != nil {
+		p.lx.ParseError(keyword, semicolonConsumeErr.Error())
+		return nil, semicolonConsumeErr
+	}
+	return Return{keyword: keyword, value: value}, nil
 }
 
 func (p *Parser) whileStatement() (Stmt, error) {
@@ -377,7 +444,48 @@ func (p *Parser) unary() (Expr, error) {
 		}
 		return Unary{operator: operator, right: expr}, nil
 	}
-	return p.primary()
+	return p.call()
+}
+
+func (p *Parser) call() (Expr, error) {
+	expr, err := p.primary()
+	if err != nil {
+		return nil, err
+	}
+	for {
+		if p.match([]TokenType{LEFT_PAREN}) {
+			var finishCallErr error
+			expr, finishCallErr = p.finishCall(expr)
+			if finishCallErr != nil {
+				return nil, finishCallErr
+			}
+		} else {
+			break;
+		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) finishCall(callee Expr) (Expr, error) {
+	arguments := make([]Expr, 0)
+	if !p.check(RIGHT_PAREN) {
+		for next := true; next; next = p.match([]TokenType{COMMA}) {
+			if len(arguments) >= 255 {
+				p.lx.ParseError(p.peek(), "Can't have more than 255 arguments.")
+			}
+			arg, err := p.expression()
+			if err != nil {
+				return nil, err
+			}
+			arguments = append(arguments, arg)
+		}
+	}
+	paren, consumeErr := p.consume(RIGHT_PAREN, "Expect ')' after arguments.")
+	if consumeErr != nil {
+		p.lx.ParseError(paren, consumeErr.Error())
+		return nil, consumeErr
+	}
+	return Call{callee: callee, paren: paren, arguments: arguments}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {

@@ -64,7 +64,12 @@ func (lx *Lox) run(source string) {
 	if err != nil {
 		return
 	}
-	interpreter := Interpreter{env: &Environment{values: make(map[string]any)}, lx: lx}
+	globals := &Environment{values: make(map[string]any)}
+	{
+		// Block for defining globals
+		globals.define("clock", Clock{})
+	}
+	interpreter := Interpreter{env: &Environment{values: make(map[string]any), enclosing: globals}, lx: lx}
 	interpreter.Interpret(statements)
 }
 

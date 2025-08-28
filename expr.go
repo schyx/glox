@@ -19,6 +19,14 @@ type Binary struct {
 
 func (b Binary) accept(v ExprVisitor) { v.visitBinary(b) }
 
+type Call struct {
+	callee    Expr
+	paren     Token
+	arguments []Expr
+}
+
+func (c Call) accept(v ExprVisitor) { v.visitCall(c) }
+
 type Grouping struct {
 	expression Expr
 }
@@ -55,6 +63,7 @@ func (variable Variable) accept(v ExprVisitor) { v.visitVariable(variable) }
 type ExprVisitor interface {
 	visitAssign(Assign)
 	visitBinary(Binary)
+	visitCall(Call)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
 	visitLogical(Logical)
