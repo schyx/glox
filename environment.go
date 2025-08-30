@@ -40,3 +40,24 @@ func (env *Environment) get(name Token) (any, error) {
 	}
 	return nil, fmt.Errorf("Undefined variable '%s'.", name.lexeme)
 }
+
+func (env *Environment) getAt(distance int, name string) (any, error) {
+	ancestor := env.ancestor(distance)
+	val, ok := ancestor.values[name]
+	if !ok {
+		return nil, fmt.Errorf("Undefined variable '%s'.", name)
+	}
+	return val, nil
+}
+
+func (env *Environment) assignAt(distance int, name Token, value any) {
+	env.ancestor(distance).values[name.lexeme] = value
+}
+
+func (env *Environment) ancestor(distance int) *Environment {
+	output := env
+	for range distance {
+		output = output.enclosing
+	}
+	return output
+}

@@ -9,9 +9,10 @@ import (
 // --------------- PARSER ---------------
 
 type Parser struct {
-	tokens  []Token
-	current int
-	lx      *Lox
+	tokens    []Token
+	current   int
+	lx        *Lox
+	idCounter int
 }
 
 func (p *Parser) Parse() ([]Stmt, error) {
@@ -26,6 +27,10 @@ func (p *Parser) Parse() ([]Stmt, error) {
 	return statements, nil
 }
 
+func (p *Parser) getId() int {
+	defer func() { p.idCounter += 1 }()
+	return p.idCounter
+}
 
 // --------------- STATEMENTS ---------------
 
@@ -78,7 +83,7 @@ func (p *Parser) function(kind string) (Stmt, error) {
 	if bodyErr != nil {
 		return nil, bodyErr
 	}
-	return Function{name: name, params: parameters, body: body}, nil
+	return Function{name: name, params: parameters, body: body, id: p.getId()}, nil
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
@@ -100,7 +105,7 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 		p.lx.ParseError(p.peek(), semicolonConsumeErr.Error())
 		return nil, errors.New(semicolonConsumeErr.Error())
 	}
-	return Var{name: name, initializer: initializer}, nil
+	return Var{name: name, initializer: initializer, id: p.getId()}, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -140,7 +145,7 @@ func (p *Parser) forStatement() (Stmt, error) {
 	var initializerError error
 	if p.match([]TokenType{SEMICOLON}) {
 		initializer = nil
-	} else if (p.match([]TokenType{VAR})) {
+	} else if p.match([]TokenType{VAR}) {
 		initializer, initializerError = p.varDeclaration()
 		if initializerError != nil {
 			return nil, initializerError
@@ -186,14 +191,14 @@ func (p *Parser) forStatement() (Stmt, error) {
 	}
 	// Desugar
 	if increment != nil {
-		body = Block{[]Stmt{body, Expression{expr: increment}}}
+		body = Block{statments: []Stmt{body, Expression{expr: increment, id: p.getId()}}, id: p.getId()}
 	}
 	if condition == nil {
 		condition = Literal{value: true}
 	}
 	body = While{condition: condition, body: body}
 	if initializer != nil {
-		body = Block{statments: []Stmt{initializer, body}}
+		body = Block{statments: []Stmt{initializer, body}, id: p.getId()}
 	}
 	return body, nil
 }
@@ -225,7 +230,7 @@ func (p *Parser) ifStatement() (Stmt, error) {
 			return nil, elseErr
 		}
 	}
-	return If{condition: condition, thenBranch: thenBranch, elseBranch: elseBranch}, nil
+	return If{condition: condition, thenBranch: thenBranch, elseBranch: elseBranch, id: p.getId()}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {
@@ -238,7 +243,7 @@ func (p *Parser) printStatement() (Stmt, error) {
 		p.lx.ParseError(p.peek(), consumeErr.Error())
 		return nil, errors.New(consumeErr.Error())
 	}
-	return Print{value}, nil
+	return Print{expr: value, id: p.getId()}, nil
 }
 
 func (p *Parser) returnStatement() (Stmt, error) {
@@ -256,7 +261,7 @@ func (p *Parser) returnStatement() (Stmt, error) {
 		p.lx.ParseError(keyword, semicolonConsumeErr.Error())
 		return nil, semicolonConsumeErr
 	}
-	return Return{keyword: keyword, value: value}, nil
+	return Return{keyword: keyword, value: value, id: p.getId()}, nil
 }
 
 func (p *Parser) whileStatement() (Stmt, error) {
@@ -278,7 +283,7 @@ func (p *Parser) whileStatement() (Stmt, error) {
 	if stmtErr != nil {
 		return nil, stmtErr
 	}
-	return While{condition: condition, body: body}, nil
+	return While{condition: condition, body: body, id: p.getId()}, nil
 }
 
 func (p *Parser) block() ([]Stmt, error) {
@@ -308,7 +313,7 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		p.lx.ParseError(p.peek(), consumeErr.Error())
 		return nil, errors.New(consumeErr.Error())
 	}
-	return Expression{value}, nil
+	return Expression{expr: value, id: p.getId()}, nil
 }
 
 // --------------- EXPRESSIONS ---------------
@@ -331,7 +336,7 @@ func (p *Parser) assignment() (Expr, error) {
 		switch t := expr.(type) {
 		case Variable:
 			name := t.name
-			return Assign{name: name, value: value}, nil
+			return Assign{name: name, value: value, id: p.getId()}, nil
 		default:
 			p.lx.ParseError(equals, "Invalid assignment target.")
 		}
@@ -350,7 +355,7 @@ func (p *Parser) or() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Logical{left: expr, operator: operator, right: right}
+		expr = Logical{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -366,7 +371,7 @@ func (p *Parser) and() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = Logical{left: expr, operator: operator, right: right}
+		expr = Logical{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -382,7 +387,7 @@ func (p *Parser) equality() (Expr, error) {
 		if err != nil {
 			return right, err
 		}
-		expr = Binary{left: expr, operator: operator, right: right}
+		expr = Binary{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -398,7 +403,7 @@ func (p *Parser) comparison() (Expr, error) {
 		if err != nil {
 			return right, err
 		}
-		expr = Binary{left: expr, operator: operator, right: right}
+		expr = Binary{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -414,7 +419,7 @@ func (p *Parser) term() (Expr, error) {
 		if err != nil {
 			return right, err
 		}
-		expr = Binary{left: expr, operator: operator, right: right}
+		expr = Binary{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -430,7 +435,7 @@ func (p *Parser) factor() (Expr, error) {
 		if err != nil {
 			return right, err
 		}
-		expr = Binary{left: expr, operator: operator, right: right}
+		expr = Binary{left: expr, operator: operator, right: right, id: p.getId()}
 	}
 	return expr, nil
 }
@@ -442,7 +447,7 @@ func (p *Parser) unary() (Expr, error) {
 		if err != nil {
 			return expr, err
 		}
-		return Unary{operator: operator, right: expr}, nil
+		return Unary{operator: operator, right: expr, id: p.getId()}, nil
 	}
 	return p.call()
 }
@@ -460,7 +465,7 @@ func (p *Parser) call() (Expr, error) {
 				return nil, finishCallErr
 			}
 		} else {
-			break;
+			break
 		}
 	}
 	return expr, nil
@@ -485,24 +490,24 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 		p.lx.ParseError(paren, consumeErr.Error())
 		return nil, consumeErr
 	}
-	return Call{callee: callee, paren: paren, arguments: arguments}, nil
+	return Call{callee: callee, paren: paren, arguments: arguments, id: p.getId()}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {
 	if p.match([]TokenType{FALSE}) {
-		return Literal{value: false}, nil
+		return Literal{value: false, id: p.getId()}, nil
 	}
 	if p.match([]TokenType{TRUE}) {
-		return Literal{value: true}, nil
+		return Literal{value: true, id: p.getId()}, nil
 	}
 	if p.match([]TokenType{NIL}) {
-		return Literal{value: nil}, nil
+		return Literal{value: nil, id: p.getId()}, nil
 	}
 	if p.match([]TokenType{NUMBER, STRING}) {
-		return Literal{p.previous().literal}, nil
+		return Literal{value: p.previous().literal, id: p.getId()}, nil
 	}
 	if p.match([]TokenType{IDENTIFIER}) {
-		return Variable{name: p.previous()}, nil
+		return Variable{name: p.previous(), id: p.getId()}, nil
 	}
 	if p.match([]TokenType{LEFT_PAREN}) {
 		expr, errExpression := p.expression()
@@ -512,12 +517,12 @@ func (p *Parser) primary() (Expr, error) {
 		_, err := p.consume(RIGHT_PAREN, "Expect ')' after expression.")
 		if err != nil {
 			p.lx.ParseError(p.peek(), err.Error())
-			return Unary{}, errors.New(err.Error())
+			return nil, errors.New(err.Error())
 		}
-		return Grouping{expression: expr}, nil
+		return Grouping{expression: expr, id: p.getId()}, nil
 	}
 	p.lx.ParseError(p.peek(), "Expect expression.")
-	return Unary{}, errors.New("Expect expression.")
+	return nil, errors.New("Expect expression.")
 }
 
 // --------------- HELPERS ---------------

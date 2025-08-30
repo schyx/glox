@@ -7,6 +7,7 @@ type Expr interface {
 type Assign struct {
 	name  Token
 	value Expr
+	id    int
 }
 
 func (a Assign) accept(v ExprVisitor) { v.visitAssign(a) }
@@ -15,6 +16,7 @@ type Binary struct {
 	left     Expr
 	operator Token
 	right    Expr
+	id       int
 }
 
 func (b Binary) accept(v ExprVisitor) { v.visitBinary(b) }
@@ -23,18 +25,21 @@ type Call struct {
 	callee    Expr
 	paren     Token
 	arguments []Expr
+	id        int
 }
 
 func (c Call) accept(v ExprVisitor) { v.visitCall(c) }
 
 type Grouping struct {
 	expression Expr
+	id         int
 }
 
 func (g Grouping) accept(v ExprVisitor) { v.visitGrouping(g) }
 
 type Literal struct {
 	value any
+	id    int
 }
 
 func (l Literal) accept(v ExprVisitor) { v.visitLiteral(l) }
@@ -43,6 +48,7 @@ type Logical struct {
 	left     Expr
 	operator Token
 	right    Expr
+	id       int
 }
 
 func (l Logical) accept(v ExprVisitor) { v.visitLogical(l) }
@@ -50,12 +56,14 @@ func (l Logical) accept(v ExprVisitor) { v.visitLogical(l) }
 type Unary struct {
 	operator Token
 	right    Expr
+	id       int
 }
 
 func (u Unary) accept(v ExprVisitor) { v.visitUnary(u) }
 
 type Variable struct {
 	name Token
+	id   int
 }
 
 func (variable Variable) accept(v ExprVisitor) { v.visitVariable(variable) }

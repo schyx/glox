@@ -60,8 +60,8 @@ func (lx *Lox) run(source string) {
 	scanner := Scanner{source: source, tokens: make([]Token, 0), start: 0, current: 0, line: 1, lox: lx}
 	tokens := scanner.ScanTokens()
 	parser := Parser{tokens: tokens, current: 0, lx: lx}
-	statements, err := parser.Parse()
-	if err != nil {
+	statements, _ := parser.Parse()
+	if lx.hadError {
 		return
 	}
 	globals := &Environment{values: make(map[string]any)}
@@ -69,7 +69,12 @@ func (lx *Lox) run(source string) {
 		// Block for defining globals
 		globals.define("clock", Clock{})
 	}
-	interpreter := Interpreter{env: &Environment{values: make(map[string]any), enclosing: globals}, lx: lx}
+	interpreter := Interpreter{env: globals, locals: make(map[Expr]int), lx: lx}
+	resolver := Resolver{interp: &interpreter, scopes: make([]map[string]bool, 0), lx: lx}
+	resolver.resolveStatements(statements)
+	if lx.hadError {
+		return
+	}
 	interpreter.Interpret(statements)
 }
 
@@ -88,6 +93,10 @@ func (lx *Lox) ParseError(token Token, message string) {
 	} else {
 		lx.report(token.line, fmt.Sprintf(" at '%s'", token.lexeme), message)
 	}
+}
+
+func (lx *Lox) ResolveError(token Token, message string) {
+	lx.report(token.line, "", message)
 }
 
 func (lx *Lox) RuntimeError(token Token, err error) {

@@ -13,18 +13,22 @@ type Interpreter struct {
 	badToken    Token
 	checkReturn bool
 	returnVal   any
+	locals      map[Expr]int
 	env         *Environment
 	lx          *Lox
 }
 
 func (interp *Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
-		_, _, err, badToken := execStmt(statement, interp.env)
+		_, _, err, _ := execStmt(statement, interp.env, interp.locals, interp.lx)
 		if err != nil {
-			interp.lx.RuntimeError(badToken, err)
 			return
 		}
 	}
+}
+
+func (interp *Interpreter) resolve(expr Expr, depth int) {
+	interp.locals[expr] = depth
 }
 
 // --------------- STATEMENTS ---------------
@@ -33,8 +37,8 @@ func (interp *Interpreter) execute(stmt Stmt) {
 	stmt.accept(interp)
 }
 
-func execStmt(stmt Stmt, env *Environment) (any, bool, error, Token) {
-	dummyInterp := Interpreter{env: env}
+func execStmt(stmt Stmt, env *Environment, locals map[Expr]int, lx *Lox) (any, bool, error, Token) {
+	dummyInterp := &Interpreter{env: env, locals: locals, lx: lx}
 	dummyInterp.execute(stmt)
 	return dummyInterp.returnVal, dummyInterp.checkReturn, dummyInterp.err, dummyInterp.badToken
 }
@@ -45,8 +49,8 @@ func (interp *Interpreter) visitBlock(stmt Block) {
 
 func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 	for _, statement := range statements {
-		returnVal, checkReturn, err, badToken := execStmt(statement, env)
-		if interp.err != nil {
+		returnVal, checkReturn, err, badToken := execStmt(statement, env, interp.locals, interp.lx)
+		if err != nil {
 			interp.err = err
 			interp.badToken = badToken
 			return
@@ -60,7 +64,7 @@ func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 }
 
 func (interp *Interpreter) visitExpression(stmt Expression) {
-	_, err, badToken := evalExpr(stmt.expr, interp.env)
+	_, err, badToken := evalExpr(stmt.expr, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.err = err
 		interp.badToken = badToken
@@ -74,14 +78,14 @@ func (interp *Interpreter) visitFunction(stmt Function) {
 }
 
 func (interp *Interpreter) visitIf(stmt If) {
-	conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env)
+	conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env, interp.locals, interp.lx)
 	if conditionErr != nil {
 		interp.err = conditionErr
 		interp.badToken = conditionBadToken
 		return
 	}
 	if isTruthy(conditionVal) {
-		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.thenBranch, interp.env)
+		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.thenBranch, interp.env, interp.locals, interp.lx)
 		if execErr != nil {
 			interp.err = execErr
 			interp.badToken = execBadToken
@@ -90,7 +94,7 @@ func (interp *Interpreter) visitIf(stmt If) {
 		interp.returnVal = returnVal
 		interp.checkReturn = checkReturn
 	} else if stmt.elseBranch != nil {
-		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.elseBranch, interp.env)
+		returnVal, checkReturn, execErr, execBadToken := execStmt(stmt.elseBranch, interp.env, interp.locals, interp.lx)
 		if execErr != nil {
 			interp.err = execErr
 			interp.badToken = execBadToken
@@ -102,7 +106,7 @@ func (interp *Interpreter) visitIf(stmt If) {
 }
 
 func (interp *Interpreter) visitPrint(stmt Print) {
-	val, err, badToken := evalExpr(stmt.expr, interp.env)
+	val, err, badToken := evalExpr(stmt.expr, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.err = err
 		interp.badToken = badToken
@@ -116,7 +120,7 @@ func (interp *Interpreter) visitReturn(stmt Return) {
 	if stmt.value != nil {
 		var valueErr error
 		var valueBadToken Token
-		value, valueErr, valueBadToken = evalExpr(stmt.value, interp.env)
+		value, valueErr, valueBadToken = evalExpr(stmt.value, interp.env, interp.locals, interp.lx)
 		if valueErr != nil {
 			interp.err = valueErr
 			interp.badToken = valueBadToken
@@ -130,7 +134,7 @@ func (interp *Interpreter) visitReturn(stmt Return) {
 func (interp *Interpreter) visitVar(stmt Var) {
 	var value any
 	if stmt.initializer != nil {
-		val, err, badToken := evalExpr(stmt.initializer, interp.env)
+		val, err, badToken := evalExpr(stmt.initializer, interp.env, interp.locals, interp.lx)
 		if err != nil {
 			interp.err = err
 			interp.badToken = badToken
@@ -143,7 +147,7 @@ func (interp *Interpreter) visitVar(stmt Var) {
 
 func (interp *Interpreter) visitWhile(stmt While) {
 	for {
-		conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env)
+		conditionVal, conditionErr, conditionBadToken := evalExpr(stmt.condition, interp.env, interp.locals, interp.lx)
 		if conditionErr != nil {
 			interp.err = conditionErr
 			interp.badToken = conditionBadToken
@@ -152,7 +156,7 @@ func (interp *Interpreter) visitWhile(stmt While) {
 		if !isTruthy(conditionVal) {
 			return
 		}
-		returnVal, checkReturn, bodyErr, bodyBadToken := execStmt(stmt.body, interp.env)
+		returnVal, checkReturn, bodyErr, bodyBadToken := execStmt(stmt.body, interp.env, interp.locals, interp.lx)
 		if bodyErr != nil {
 			interp.err = bodyErr
 			interp.badToken = bodyBadToken
@@ -169,38 +173,39 @@ func (interp *Interpreter) evaluate(expr Expr) {
 	expr.accept(interp)
 }
 
-func evalExpr(expr Expr, env *Environment) (any, error, Token) {
-	dummyInterp := Interpreter{env: env}
+func evalExpr(expr Expr, env *Environment, local map[Expr]int, lx *Lox) (any, error, Token) {
+	dummyInterp := Interpreter{env: env, locals: local, lx: lx}
 	dummyInterp.evaluate(expr)
 	return dummyInterp.output, dummyInterp.err, dummyInterp.badToken
 }
 
 func (interp *Interpreter) visitAssign(expr Assign) {
-	value, err, badToken := evalExpr(expr.value, interp.env)
+	value, err, badToken := evalExpr(expr.value, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.output = NIL
 		interp.err = err
 		interp.badToken = badToken
 		return
 	}
-	assignErr := interp.env.assign(expr.name, value)
-	if assignErr != nil {
-		interp.err = err
-		interp.badToken = expr.name
-		return
+	distance, ok := interp.locals[expr]
+	if ok {
+		interp.env.assignAt(distance, expr.name, value)
+	} else {
+		globals := interp.getGlobals()
+		globals.assign(expr.name, value)
 	}
 	interp.output = value
 }
 
 func (interp *Interpreter) visitBinary(expr Binary) {
-	left, err, token := evalExpr(expr.left, interp.env)
+	left, err, token := evalExpr(expr.left, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.output = nil
 		interp.err = err
 		interp.badToken = token
 		return
 	}
-	right, err, token := evalExpr(expr.right, interp.env)
+	right, err, token := evalExpr(expr.right, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.output = nil
 		interp.err = err
@@ -253,17 +258,19 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 }
 
 func (interp *Interpreter) visitCall(expr Call) {
-	callee, calleeErr, calleeBadToken := evalExpr(expr.callee, interp.env)
+	callee, calleeErr, calleeBadToken := evalExpr(expr.callee, interp.env, interp.locals, interp.lx)
 	if calleeErr != nil {
 		interp.err = calleeErr
 		interp.badToken = calleeBadToken
+		return
 	}
 	arguments := make([]any, 0)
 	for _, argument := range expr.arguments {
-		arg, argErr, argBadToken := evalExpr(argument, interp.env)
+		arg, argErr, argBadToken := evalExpr(argument, interp.env, interp.locals, interp.lx)
 		if argErr != nil {
 			interp.err = argErr
 			interp.badToken = argBadToken
+			return
 		}
 		arguments = append(arguments, arg)
 	}
@@ -278,7 +285,7 @@ func (interp *Interpreter) visitCall(expr Call) {
 		}
 		interp.output = function.call(interp, arguments)
 	default:
-		err := fmt.Errorf("Can only call functions and classes")
+		err := fmt.Errorf("Can only call functions and classes. Trying to call %v with type %T.", expr.callee, expr.callee)
 		interp.lx.RuntimeError(expr.paren, err)
 		interp.err = err
 		interp.badToken = expr.paren
@@ -286,7 +293,7 @@ func (interp *Interpreter) visitCall(expr Call) {
 }
 
 func (interp *Interpreter) visitGrouping(expr Grouping) {
-	interp.output, interp.err, interp.badToken = evalExpr(expr.expression, interp.env)
+	interp.output, interp.err, interp.badToken = evalExpr(expr.expression, interp.env, interp.locals, interp.lx)
 }
 
 func (interp *Interpreter) visitLiteral(expr Literal) {
@@ -294,7 +301,7 @@ func (interp *Interpreter) visitLiteral(expr Literal) {
 }
 
 func (interp *Interpreter) visitLogical(expr Logical) {
-	left, leftErr, leftBadToken := evalExpr(expr.left, interp.env)
+	left, leftErr, leftBadToken := evalExpr(expr.left, interp.env, interp.locals, interp.lx)
 	if leftErr != nil {
 		interp.err = leftErr
 		interp.badToken = leftBadToken
@@ -311,7 +318,7 @@ func (interp *Interpreter) visitLogical(expr Logical) {
 			return
 		}
 	}
-	right, rightErr, rightBadToken := evalExpr(expr.right, interp.env)
+	right, rightErr, rightBadToken := evalExpr(expr.right, interp.env, interp.locals, interp.lx)
 	if rightErr != nil {
 		interp.err = rightErr
 		interp.badToken = rightBadToken
@@ -321,7 +328,7 @@ func (interp *Interpreter) visitLogical(expr Logical) {
 }
 
 func (interp *Interpreter) visitUnary(expr Unary) {
-	right, err, token := evalExpr(expr.right, interp.env)
+	right, err, token := evalExpr(expr.right, interp.env, interp.locals, interp.lx)
 	if err != nil {
 		interp.output = nil
 		interp.err = err
@@ -340,14 +347,24 @@ func (interp *Interpreter) visitUnary(expr Unary) {
 }
 
 func (interp *Interpreter) visitVariable(expr Variable) {
-	val, err := interp.env.get(expr.name)
+	val, err := interp.lookUpVariable(expr.name, expr)
 	if err != nil {
-		interp.output = nil
 		interp.err = err
 		interp.badToken = expr.name
+		interp.lx.RuntimeError(expr.name, err)
 		return
 	}
 	interp.output = val
+}
+
+func (interp *Interpreter) lookUpVariable(name Token, expr Expr) (any, error) {
+	distance, ok := interp.locals[expr]
+	if ok {
+		return interp.env.getAt(distance, name.lexeme)
+	} else {
+		globals := interp.getGlobals()
+		return globals.get(name)
+	}
 }
 
 // --------------- HELPERS ---------------
@@ -422,4 +439,12 @@ func toString(val any) (string, error) {
 	default:
 		return "", errors.New("Converting non-string value to string")
 	}
+}
+
+func (interp *Interpreter) getGlobals() *Environment {
+	env := interp.env
+	for env.enclosing != nil {
+		env = env.enclosing
+	}
+	return env
 }
