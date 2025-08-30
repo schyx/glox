@@ -3,8 +3,15 @@ package main
 import "fmt"
 
 type LoxFunction struct {
-	declaration Function
-	env         *Environment
+	declaration   Function
+	env           *Environment
+	isInitializer bool
+}
+
+func (lf LoxFunction) bind(li LoxInstance) LoxFunction {
+	env := Environment{values: make(map[string]any), enclosing: lf.env}
+	env.define("this", li)
+	return LoxFunction{declaration: lf.declaration, env: &env, isInitializer: lf.isInitializer}
 }
 
 func (lf LoxFunction) call(interp *Interpreter, args []any) any {
@@ -17,7 +24,12 @@ func (lf LoxFunction) call(interp *Interpreter, args []any) any {
 		interp.returnVal = nil
 		interp.checkReturn = false
 	}()
-	return interp.returnVal
+	if lf.isInitializer {
+		output, _ := env.getAt(0, "this")
+		return output
+	} else {
+		return interp.returnVal
+	}
 }
 
 func (lf LoxFunction) arity() int {

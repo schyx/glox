@@ -30,6 +30,14 @@ type Call struct {
 
 func (c Call) accept(v ExprVisitor) { v.visitCall(c) }
 
+type Get struct {
+	object Expr
+	name   Token
+	id     int
+}
+
+func (g Get) accept(v ExprVisitor) { v.visitGet(g) }
+
 type Grouping struct {
 	expression Expr
 	id         int
@@ -53,6 +61,22 @@ type Logical struct {
 
 func (l Logical) accept(v ExprVisitor) { v.visitLogical(l) }
 
+type Set struct {
+	object Expr
+	name   Token
+	value  Expr
+	id     int
+}
+
+func (s Set) accept(v ExprVisitor) { v.visitSet(s) }
+
+type This struct {
+	keyword Token
+	id      int
+}
+
+func (t This) accept(v ExprVisitor) { v.visitThis(t) }
+
 type Unary struct {
 	operator Token
 	right    Expr
@@ -72,9 +96,12 @@ type ExprVisitor interface {
 	visitAssign(Assign)
 	visitBinary(Binary)
 	visitCall(Call)
+	visitGet(Get)
 	visitGrouping(Grouping)
 	visitLiteral(Literal)
 	visitLogical(Logical)
+	visitSet(Set)
+	visitThis(This)
 	visitUnary(Unary)
 	visitVariable(Variable)
 }

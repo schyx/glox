@@ -4,6 +4,7 @@ type Resolver struct {
 	interp          *Interpreter
 	scopes          []map[string]bool
 	currentFunction FunctionType
+	currentClass    ClassType
 	lx              *Lox
 }
 
@@ -12,6 +13,15 @@ type FunctionType int
 const (
 	NONE FunctionType = iota
 	FUNCTION
+	INITIALIZER
+	METHOD
+)
+
+type ClassType int
+
+const (
+	NOCLASS ClassType = iota
+	YESCLASS
 )
 
 func (r *Resolver) visitBlock(stmt Block) {
@@ -28,6 +38,24 @@ func (r *Resolver) resolveStatements(statements []Stmt) {
 
 func (r *Resolver) resolveStatement(stmt Stmt) {
 	stmt.accept(r)
+}
+
+func (r *Resolver) visitClass(stmt Class) {
+	enclosingClass := r.currentClass
+	r.currentClass = YESCLASS
+	r.declare(stmt.name)
+	r.beginScope()
+	r.scopes[len(r.scopes)-1]["this"] = true
+	for _, method := range stmt.methods {
+		declaration := METHOD
+		if method.name.lexeme == "init" {
+			declaration = INITIALIZER
+		}
+		r.resolveFunction(method, declaration)
+	}
+	r.endScope()
+	r.define(stmt.name)
+	r.currentClass = enclosingClass
 }
 
 func (r *Resolver) visitExpression(stmt Expression) {
@@ -53,13 +81,19 @@ func (r *Resolver) visitPrint(stmt Print) {
 }
 
 func (r *Resolver) visitReturn(stmt Return) {
-	if r.currentFunction == NONE {
+	switch r.currentFunction {
+	case NONE:
 		r.lx.ResolveError(stmt.keyword, "Can't return from top-level code.")
+	case INITIALIZER:
+		if stmt.value != nil {
+			r.lx.ResolveError(stmt.keyword, "Can't return a value from an initializer.")
+		}
+	default:
+		if stmt.value == nil {
+			return
+		}
+		r.resolveExpression(stmt.value)
 	}
-	if stmt.value == nil {
-		return
-	}
-	r.resolveExpression(stmt.value)
 }
 
 func (r *Resolver) visitWhile(stmt While) {
@@ -109,6 +143,10 @@ func (r *Resolver) visitCall(expr Call) {
 	}
 }
 
+func (r *Resolver) visitGet(expr Get) {
+	r.resolveExpression(expr.object)
+}
+
 func (r *Resolver) visitGrouping(expr Grouping) {
 	r.resolveExpression(expr.expression)
 }
@@ -120,12 +158,25 @@ func (r *Resolver) visitLogical(expr Logical) {
 	r.resolveExpression(expr.right)
 }
 
+func (r *Resolver) visitSet(expr Set) {
+	r.resolveExpression(expr.value)
+	r.resolveExpression(expr.object)
+}
+
+func (r *Resolver) visitThis(expr This) {
+	if r.currentClass == NOCLASS {
+		r.lx.ResolveError(expr.keyword, "Can't use 'this' outside of class.")
+		return
+	}
+	r.resolveLocal(expr, expr.keyword)
+}
+
 func (r *Resolver) visitUnary(expr Unary) {
 	r.resolveExpression(expr.right)
 }
 
 func (r *Resolver) visitVariable(expr Variable) {
-	if (len(r.scopes) == 0) {
+	if len(r.scopes) == 0 {
 		return
 	}
 	if val, ok := r.scopes[len(r.scopes)-1][expr.name.lexeme]; (ok == true) && (val == false) {

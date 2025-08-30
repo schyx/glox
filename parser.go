@@ -35,6 +35,9 @@ func (p *Parser) getId() int {
 // --------------- STATEMENTS ---------------
 
 func (p *Parser) declaration() (Stmt, error) {
+	if p.match([]TokenType{CLASS}) {
+		return p.class()
+	}
 	if p.match([]TokenType{FUN}) {
 		return p.function("function")
 	}
@@ -44,16 +47,43 @@ func (p *Parser) declaration() (Stmt, error) {
 	return p.statement()
 }
 
-func (p *Parser) function(kind string) (Stmt, error) {
+func (p *Parser) class() (Stmt, error) {
+	name, nameConsumeErr := p.consume(IDENTIFIER, fmt.Sprintf("Expect class name."))
+	if nameConsumeErr != nil {
+		p.lx.ParseError(name, nameConsumeErr.Error())
+		return nil, nameConsumeErr
+	}
+	_, leftBraceConsumeErr := p.consume(LEFT_BRACE, "Expect '{' before class body.")
+	if leftBraceConsumeErr != nil {
+		p.lx.ParseError(p.peek(), leftBraceConsumeErr.Error())
+		return nil, leftBraceConsumeErr
+	}
+	methods := make([]Function, 0)
+	for !p.check(RIGHT_BRACE) && !p.isAtEnd() {
+		method, methodErr := p.function("method")
+		if methodErr != nil {
+			return nil, methodErr
+		}
+		methods = append(methods, method)
+	}
+	_, rightBraceConsumeErr := p.consume(RIGHT_BRACE, "Expect '}' after class body.")
+	if rightBraceConsumeErr != nil {
+		p.lx.ParseError(p.peek(), rightBraceConsumeErr.Error())
+		return nil, rightBraceConsumeErr
+	}
+	return Class{name: name, methods: methods, id: p.getId()}, nil
+}
+
+func (p *Parser) function(kind string) (Function, error) {
 	name, identifierConsumeErr := p.consume(IDENTIFIER, fmt.Sprintf("Expect %s name.", kind))
 	if identifierConsumeErr != nil {
 		p.lx.ParseError(p.peek(), identifierConsumeErr.Error())
-		return nil, identifierConsumeErr
+		return Function{}, identifierConsumeErr
 	}
 	_, leftParenConsumeErr := p.consume(LEFT_PAREN, fmt.Sprintf("Expect '(' after %s name.", kind))
 	if leftParenConsumeErr != nil {
 		p.lx.ParseError(p.peek(), leftParenConsumeErr.Error())
-		return nil, identifierConsumeErr
+		return Function{}, identifierConsumeErr
 	}
 	parameters := make([]Token, 0)
 	if !p.check(RIGHT_PAREN) {
@@ -64,7 +94,7 @@ func (p *Parser) function(kind string) (Stmt, error) {
 			param, paramConsumeErr := p.consume(IDENTIFIER, "Expect parameter name.")
 			if paramConsumeErr != nil {
 				p.lx.ParseError(p.peek(), paramConsumeErr.Error())
-				return nil, paramConsumeErr
+				return Function{}, paramConsumeErr
 			}
 			parameters = append(parameters, param)
 		}
@@ -72,16 +102,16 @@ func (p *Parser) function(kind string) (Stmt, error) {
 	_, rightParenConsumeErr := p.consume(RIGHT_PAREN, "Expect ')' after parameters.")
 	if rightParenConsumeErr != nil {
 		p.lx.ParseError(p.peek(), rightParenConsumeErr.Error())
-		return nil, rightParenConsumeErr
+		return Function{}, rightParenConsumeErr
 	}
 	_, leftBraceConsumeErr := p.consume(LEFT_BRACE, fmt.Sprintf("Expect '{' before %s body.", kind))
 	if leftBraceConsumeErr != nil {
 		p.lx.ParseError(p.peek(), leftBraceConsumeErr.Error())
-		return nil, leftBraceConsumeErr
+		return Function{}, leftBraceConsumeErr
 	}
 	body, bodyErr := p.block()
 	if bodyErr != nil {
-		return nil, bodyErr
+		return Function{}, bodyErr
 	}
 	return Function{name: name, params: parameters, body: body, id: p.getId()}, nil
 }
@@ -337,6 +367,8 @@ func (p *Parser) assignment() (Expr, error) {
 		case Variable:
 			name := t.name
 			return Assign{name: name, value: value, id: p.getId()}, nil
+		case Get:
+			return Set{object: t.object, name: t.name, value: value, id: p.getId()}, nil
 		default:
 			p.lx.ParseError(equals, "Invalid assignment target.")
 		}
@@ -464,6 +496,13 @@ func (p *Parser) call() (Expr, error) {
 			if finishCallErr != nil {
 				return nil, finishCallErr
 			}
+		} else if p.match([]TokenType{DOT}) {
+			name, nameConsumeErr := p.consume(IDENTIFIER, "Expect property name after '.'.")
+			if nameConsumeErr != nil {
+				p.lx.ParseError(name, nameConsumeErr.Error())
+				return nil, nameConsumeErr
+			}
+			expr = Get{object: expr, name: name, id: p.getId()}
 		} else {
 			break
 		}
@@ -508,6 +547,9 @@ func (p *Parser) primary() (Expr, error) {
 	}
 	if p.match([]TokenType{IDENTIFIER}) {
 		return Variable{name: p.previous(), id: p.getId()}, nil
+	}
+	if p.match([]TokenType{THIS}) {
+		return This{keyword: p.previous(), id: p.getId()}, nil
 	}
 	if p.match([]TokenType{LEFT_PAREN}) {
 		expr, errExpression := p.expression()

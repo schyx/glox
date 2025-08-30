@@ -11,6 +11,14 @@ type Block struct {
 
 func (b Block) accept(v StmtVisitor) { v.visitBlock(b) }
 
+type Class struct {
+	name    Token
+	methods []Function
+	id      int
+}
+
+func (c Class) accept(v StmtVisitor) { v.visitClass(c) }
+
 type Expression struct {
 	expr Expr
 	id   int
@@ -69,6 +77,7 @@ func (w While) accept(v StmtVisitor) { v.visitWhile(w) }
 
 type StmtVisitor interface {
 	visitBlock(Block)
+	visitClass(Class)
 	visitExpression(Expression)
 	visitFunction(Function)
 	visitIf(If)

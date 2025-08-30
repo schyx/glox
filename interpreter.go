@@ -63,6 +63,17 @@ func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 	}
 }
 
+func (interp *Interpreter) visitClass(stmt Class) {
+	interp.env.define(stmt.name.lexeme, nil)
+	methods := make(map[string]LoxFunction)
+	for _, method := range stmt.methods {
+		function := LoxFunction{declaration: method, env: interp.env, isInitializer: method.name.lexeme == "init"}
+		methods[method.name.lexeme] = function
+	}
+	klass := LoxClass{name: stmt.name.lexeme, methods: methods}
+	interp.env.assign(stmt.name, klass)
+}
+
 func (interp *Interpreter) visitExpression(stmt Expression) {
 	_, err, badToken := evalExpr(stmt.expr, interp.env, interp.locals, interp.lx)
 	if err != nil {
@@ -73,7 +84,7 @@ func (interp *Interpreter) visitExpression(stmt Expression) {
 }
 
 func (interp *Interpreter) visitFunction(stmt Function) {
-	function := LoxFunction{declaration: stmt, env: interp.env}
+	function := LoxFunction{declaration: stmt, env: interp.env, isInitializer: false}
 	interp.env.define(stmt.name.lexeme, function)
 }
 
@@ -292,6 +303,34 @@ func (interp *Interpreter) visitCall(expr Call) {
 	}
 }
 
+func (interp *Interpreter) visitGet(expr Get) {
+	object, objectErr, objectBadToken := evalExpr(expr.object, interp.env, interp.locals, interp.lx)
+	if objectErr != nil {
+		interp.err = objectErr
+		interp.badToken = objectBadToken
+		return
+	}
+	switch li := object.(type) {
+	case LoxInstance:
+		val, getErr := li.get(expr.name)
+		if getErr != nil {
+			interp.lx.RuntimeError(expr.name, getErr)
+			interp.err = getErr
+			interp.badToken = expr.name
+			return
+		} else {
+			interp.output = val
+			return
+		}
+	default:
+		err := fmt.Errorf("Only instances have properties.")
+		interp.lx.RuntimeError(expr.name, err)
+		interp.err = err
+		interp.badToken = expr.name
+		return
+	}
+}
+
 func (interp *Interpreter) visitGrouping(expr Grouping) {
 	interp.output, interp.err, interp.badToken = evalExpr(expr.expression, interp.env, interp.locals, interp.lx)
 }
@@ -325,6 +364,40 @@ func (interp *Interpreter) visitLogical(expr Logical) {
 		return
 	}
 	interp.output = right
+}
+
+func (interp *Interpreter) visitSet(expr Set) {
+	object, objectErr, objectBadToken := evalExpr(expr.object, interp.env, interp.locals, interp.lx)
+	if objectErr != nil {
+		interp.err = objectErr
+		interp.badToken = objectBadToken
+		return
+	}
+	switch li := object.(type) {
+	case LoxInstance:
+		value, valueErr, valueBadToken := evalExpr(expr.value, interp.env, interp.locals, interp.lx)
+		if valueErr != nil {
+			interp.err = valueErr
+			interp.badToken = valueBadToken
+			return
+		}
+		li.set(expr.name, value)
+	default:
+		err := fmt.Errorf("Only instances have fields.")
+		interp.lx.RuntimeError(expr.name, err)
+		interp.err = err
+		interp.badToken = expr.name
+	}
+}
+
+func (interp *Interpreter) visitThis(expr This) {
+	value, err := interp.lookUpVariable(expr.keyword, expr)
+	if err != nil {
+		interp.err = err
+		interp.badToken = expr.keyword
+		return
+	}
+	interp.output = value
 }
 
 func (interp *Interpreter) visitUnary(expr Unary) {
