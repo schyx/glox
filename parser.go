@@ -561,7 +561,7 @@ func (p *Parser) primary() (Expr, error) {
 		keyword := p.previous()
 		_, dotConsumeErr := p.consume(DOT, "Expect '.' after 'super'.")
 		if dotConsumeErr != nil {
-			p.lx.ParseError(keyword, dotConsumeErr.Error())
+			p.lx.ParseError(p.peek(), dotConsumeErr.Error())
 			return nil, dotConsumeErr
 		}
 		method, methodConsumeError := p.consume(IDENTIFIER, "Expect superclass method name.")
