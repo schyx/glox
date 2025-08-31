@@ -59,7 +59,7 @@ func (lx *Lox) runPrompt() {
 func (lx *Lox) run(source string) {
 	scanner := Scanner{source: source, tokens: make([]Token, 0), start: 0, current: 0, line: 1, lox: lx}
 	tokens := scanner.ScanTokens()
-	parser := Parser{tokens: tokens, current: 0, lx: lx}
+	parser := Parser{tokens: tokens, current: 0, lx: lx, idCounter: 1}
 	statements, _ := parser.Parse()
 	if lx.hadError {
 		return
