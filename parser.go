@@ -566,7 +566,7 @@ func (p *Parser) primary() (Expr, error) {
 		}
 		method, methodConsumeError := p.consume(IDENTIFIER, "Expect superclass method name.")
 		if methodConsumeError != nil {
-			p.lx.ParseError(method, methodConsumeError.Error())
+			p.lx.ParseError(p.peek(), methodConsumeError.Error())
 			return nil, methodConsumeError
 		}
 		return Super{keyword: keyword, method: method, id: p.getId()}, nil
