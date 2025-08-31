@@ -508,7 +508,7 @@ func (p *Parser) call() (Expr, error) {
 		} else if p.match([]TokenType{DOT}) {
 			name, nameConsumeErr := p.consume(IDENTIFIER, "Expect property name after '.'.")
 			if nameConsumeErr != nil {
-				p.lx.ParseError(name, nameConsumeErr.Error())
+				p.lx.ParseError(p.peek(), nameConsumeErr.Error())
 				return nil, nameConsumeErr
 			}
 			expr = Get{object: expr, name: name, id: p.getId()}
