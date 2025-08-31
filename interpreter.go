@@ -341,7 +341,7 @@ func (interp *Interpreter) visitCall(expr Call) {
 		}
 		interp.output = function.call(interp, arguments)
 	default:
-		err := fmt.Errorf("Can only call functions and classes. Trying to call %v with type %T.", expr.callee, expr.callee)
+		err := fmt.Errorf("Can only call functions and classes.")
 		interp.lx.RuntimeError(expr.paren, err)
 		interp.err = err
 		interp.badToken = expr.paren
