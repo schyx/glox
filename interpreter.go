@@ -427,6 +427,7 @@ func (interp *Interpreter) visitSet(expr Set) {
 			return
 		}
 		li.set(expr.name, value)
+		interp.output = value
 	default:
 		err := fmt.Errorf("Only instances have fields.")
 		interp.lx.RuntimeError(expr.name, err)
