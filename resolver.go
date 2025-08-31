@@ -22,6 +22,7 @@ type ClassType int
 const (
 	NOCLASS ClassType = iota
 	YESCLASS
+	SUBCLASS
 )
 
 func (r *Resolver) visitBlock(stmt Block) {
@@ -49,7 +50,12 @@ func (r *Resolver) visitClass(stmt Class) {
 		r.lx.ResolveError(stmt.name, "A class can't inherit from itself.")
 	}
 	if stmt.superclass.id > 0 {
+		r.currentClass = SUBCLASS
 		r.resolveExpression(stmt.superclass)
+	}
+	if stmt.superclass.id > 0 {
+		r.beginScope()
+		r.scopes[len(r.scopes)-1]["super"] = true
 	}
 	r.beginScope()
 	r.scopes[len(r.scopes)-1]["this"] = true
@@ -61,6 +67,9 @@ func (r *Resolver) visitClass(stmt Class) {
 		r.resolveFunction(method, declaration)
 	}
 	r.endScope()
+	if stmt.superclass.id > 0 {
+		r.endScope()
+	}
 	r.currentClass = enclosingClass
 }
 
@@ -167,6 +176,16 @@ func (r *Resolver) visitLogical(expr Logical) {
 func (r *Resolver) visitSet(expr Set) {
 	r.resolveExpression(expr.value)
 	r.resolveExpression(expr.object)
+}
+
+func (r *Resolver) visitSuper(expr Super) {
+	switch r.currentClass {
+	case NOCLASS:
+		r.lx.ResolveError(expr.keyword, "Can't use 'super' outside of a class.")
+	case YESCLASS:
+		r.lx.ResolveError(expr.keyword, "Can't use 'super' in a class with no superclass.")
+	}
+	r.resolveLocal(expr, expr.keyword)
 }
 
 func (r *Resolver) visitThis(expr This) {

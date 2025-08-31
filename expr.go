@@ -70,6 +70,14 @@ type Set struct {
 
 func (s Set) accept(v ExprVisitor) { v.visitSet(s) }
 
+type Super struct {
+	keyword Token
+	method  Token
+	id      int
+}
+
+func (s Super) accept(v ExprVisitor) { v.visitSuper(s) }
+
 type This struct {
 	keyword Token
 	id      int
@@ -101,6 +109,7 @@ type ExprVisitor interface {
 	visitLiteral(Literal)
 	visitLogical(Logical)
 	visitSet(Set)
+	visitSuper(Super)
 	visitThis(This)
 	visitUnary(Unary)
 	visitVariable(Variable)

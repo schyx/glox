@@ -557,6 +557,20 @@ func (p *Parser) primary() (Expr, error) {
 	if p.match([]TokenType{IDENTIFIER}) {
 		return Variable{name: p.previous(), id: p.getId()}, nil
 	}
+	if p.match([]TokenType{SUPER}) {
+		keyword := p.previous()
+		_, dotConsumeErr := p.consume(DOT, "Expect '.' after 'super'.")
+		if dotConsumeErr != nil {
+			p.lx.ParseError(keyword, dotConsumeErr.Error())
+			return nil, dotConsumeErr
+		}
+		method, methodConsumeError := p.consume(IDENTIFIER, "Expect superclass method name.")
+		if methodConsumeError != nil {
+			p.lx.ParseError(method, methodConsumeError.Error())
+			return nil, methodConsumeError
+		}
+		return Super{keyword: keyword, method: method, id: p.getId()}, nil
+	}
 	if p.match([]TokenType{THIS}) {
 		return This{keyword: p.previous(), id: p.getId()}, nil
 	}

@@ -85,13 +85,18 @@ func (interp *Interpreter) visitClass(stmt Class) {
 			return
 		}
 	}
+	super, ok := superclass.(LoxClass)
 	interp.env.define(stmt.name.lexeme, nil)
+	env := interp.env
+	if stmt.superclass.id > 0 {
+		env = &Environment{values: make(map[string]any), enclosing: interp.env}
+		env.define("super", super)
+	}
 	methods := make(map[string]LoxFunction)
 	for _, method := range stmt.methods {
-		function := LoxFunction{declaration: method, env: interp.env, isInitializer: method.name.lexeme == "init"}
+		function := LoxFunction{declaration: method, env: env, isInitializer: method.name.lexeme == "init"}
 		methods[method.name.lexeme] = function
 	}
-	super, ok := superclass.(LoxClass)
 	var klass LoxClass
 	if ok {
 		klass = LoxClass{name: stmt.name.lexeme, methods: methods, superclass: &super}
@@ -415,6 +420,22 @@ func (interp *Interpreter) visitSet(expr Set) {
 		interp.err = err
 		interp.badToken = expr.name
 	}
+}
+
+func (interp *Interpreter) visitSuper(expr Super) {
+	distance := interp.locals[expr]
+	super, _ := interp.env.getAt(distance, "super")
+	superclass, _ := super.(LoxClass)
+	obj, _ := interp.env.getAt(distance-1, "this")
+	object, _ := obj.(LoxInstance)
+	method, findMethodErr := superclass.findMethod(expr.method.lexeme)
+	if findMethodErr != nil {
+		interp.lx.RuntimeError(expr.method, findMethodErr)
+		interp.err = findMethodErr
+		interp.badToken = expr.method
+		return
+	}
+	interp.output = method.bind(object)
 }
 
 func (interp *Interpreter) visitThis(expr This) {
