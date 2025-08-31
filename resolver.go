@@ -190,7 +190,7 @@ func (r *Resolver) visitSuper(expr Super) {
 
 func (r *Resolver) visitThis(expr This) {
 	if r.currentClass == NOCLASS {
-		r.lx.ResolveError(expr.keyword, "Can't use 'this' outside of class.")
+		r.lx.ResolveError(expr.keyword, "Can't use 'this' outside of a class.")
 		return
 	}
 	r.resolveLocal(expr, expr.keyword)
