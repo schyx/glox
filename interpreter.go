@@ -78,7 +78,7 @@ func (interp *Interpreter) visitClass(stmt Class) {
 		case LoxClass:
 			break
 		default:
-			err := fmt.Errorf("Superclass must be a class")
+			err := fmt.Errorf("Superclass must be a class.")
 			interp.lx.RuntimeError(stmt.superclass.name, err)
 			interp.err = err
 			interp.badToken = stmt.superclass.name
