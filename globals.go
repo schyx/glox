@@ -11,3 +11,7 @@ func (c Clock) arity() int {
 func (c Clock) call(_interp *Interpreter, _args []any) any {
 	return time.Now().Unix()
 }
+
+func (c Clock) String() string {
+	return "<native fn>"
+}
