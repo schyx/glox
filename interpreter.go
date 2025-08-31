@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"reflect"
 )
 
 // --------------- INTERPRETER ---------------
@@ -44,7 +46,7 @@ func execStmt(stmt Stmt, env *Environment, locals map[Expr]int, lx *Lox) (any, b
 }
 
 func (interp *Interpreter) visitBlock(stmt Block) {
-	interp.executeBlock(stmt.statments, &Environment{values: make(map[string]any), enclosing: interp.env})
+	interp.executeBlock(stmt.statments, &Environment{values: make(map[string]any), enclosing: interp.env, id: rand.Int()})
 }
 
 func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
@@ -89,7 +91,7 @@ func (interp *Interpreter) visitClass(stmt Class) {
 	interp.env.define(stmt.name.lexeme, nil)
 	env := interp.env
 	if stmt.superclass.id > 0 {
-		env = &Environment{values: make(map[string]any), enclosing: interp.env}
+		env = &Environment{values: make(map[string]any), enclosing: interp.env, id: rand.Int()}
 		env.define("super", super)
 	}
 	methods := make(map[string]LoxFunction)
@@ -530,7 +532,7 @@ func isEqual(left any, right any) bool {
 	} else if left == nil {
 		return false
 	}
-	return left == right
+	return reflect.DeepEqual(left, right)
 }
 
 func toStringPair(left any, right any) (string, string, error) {

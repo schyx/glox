@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -64,7 +65,7 @@ func (lx *Lox) run(source string) {
 	if lx.hadError {
 		return
 	}
-	globals := &Environment{values: make(map[string]any)}
+	globals := &Environment{values: make(map[string]any), id: rand.Int()}
 	{
 		// Block for defining globals
 		globals.define("clock", Clock{})

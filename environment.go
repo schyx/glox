@@ -7,6 +7,7 @@ import (
 type Environment struct {
 	values    map[string]any
 	enclosing *Environment
+	id        int
 }
 
 func (env *Environment) assign(name Token, value any) error {
