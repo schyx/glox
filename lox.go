@@ -84,7 +84,7 @@ func (lx *Lox) Error(line int, message string) {
 
 func (lx *Lox) report(line int, where string, message string) {
 	lx.hadError = true
-	fmt.Printf("[line %d] Error%v: %v\n", line, where, message)
+	fmt.Fprintf(os.Stderr, "[line %d] Error%v: %v\n", line, where, message)
 }
 
 func (lx *Lox) ParseError(token Token, message string) {
@@ -96,10 +96,10 @@ func (lx *Lox) ParseError(token Token, message string) {
 }
 
 func (lx *Lox) ResolveError(token Token, message string) {
-	lx.report(token.line, "", message)
+	lx.report(token.line, fmt.Sprintf(" at '%s'", token.lexeme), message)
 }
 
 func (lx *Lox) RuntimeError(token Token, err error) {
 	lx.hadRuntimeError = true
-	fmt.Printf("%s\n[line %d]\n", err.Error(), token.line)
+	fmt.Fprintf(os.Stderr, "%s\n[line %d]", err.Error(), token.line)
 }

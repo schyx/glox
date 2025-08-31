@@ -155,7 +155,11 @@ func (interp *Interpreter) visitPrint(stmt Print) {
 		interp.badToken = badToken
 		return
 	}
-	fmt.Printf("%v\n", val)
+	if val == nil {
+		fmt.Print("nil\n")
+	} else {
+		fmt.Printf("%v\n", val)
+	}
 }
 
 func (interp *Interpreter) visitReturn(stmt Return) {
@@ -235,7 +239,13 @@ func (interp *Interpreter) visitAssign(expr Assign) {
 		interp.env.assignAt(distance, expr.name, value)
 	} else {
 		globals := interp.getGlobals()
-		globals.assign(expr.name, value)
+		assignErr := globals.assign(expr.name, value)
+		if assignErr != nil {
+			interp.lx.RuntimeError(expr.name, assignErr)
+			interp.err = assignErr
+			interp.badToken = expr.name
+			return
+		}
 	}
 	interp.output = value
 }

@@ -535,7 +535,7 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 	}
 	paren, consumeErr := p.consume(RIGHT_PAREN, "Expect ')' after arguments.")
 	if consumeErr != nil {
-		p.lx.ParseError(paren, consumeErr.Error())
+		p.lx.ParseError(p.peek(), consumeErr.Error())
 		return nil, consumeErr
 	}
 	return Call{callee: callee, paren: paren, arguments: arguments, id: p.getId()}, nil

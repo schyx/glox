@@ -224,7 +224,7 @@ func (r *Resolver) declare(name Token) {
 	}
 	scope := r.scopes[len(r.scopes)-1]
 	if _, ok := scope[name.lexeme]; ok {
-		r.lx.ResolveError(name, "Already had a variable with this name in this scope.")
+		r.lx.ResolveError(name, "Already a variable with this name in this scope.")
 	}
 	scope[name.lexeme] = false
 }
