@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 type LoxInstance struct {
 	klass  LoxClass
 	fields map[string]any
@@ -14,7 +12,7 @@ func (li LoxInstance) get(name Token) (any, error) {
 	}
 	method, methodErr := li.klass.findMethod(name.lexeme)
 	if methodErr != nil {
-		return nil, fmt.Errorf("Undefined property '%s'.",  name.lexeme)
+		return nil, methodErr
 	} else {
 		return method.bind(li), nil
 	}

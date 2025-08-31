@@ -14,7 +14,7 @@ func (lc LoxClass) findMethod(name string) (LoxFunction, error) {
 		if lc.superclass != nil {
 			return lc.superclass.findMethod(name)
 		} else {
-			return LoxFunction{}, fmt.Errorf("No method found.")
+			return LoxFunction{}, fmt.Errorf("Undefined property '%s'.", name)
 		}
 	} else {
 		return method, nil
