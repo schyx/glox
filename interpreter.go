@@ -481,9 +481,13 @@ func (interp *Interpreter) visitUnary(expr Unary) {
 		interp.output = !isTruthy(right)
 	case MINUS:
 		val, err := toFloat(right)
+		if err != nil {
+			interp.err = err
+			interp.badToken = expr.operator
+			interp.lx.RuntimeError(expr.operator, err)
+			return
+		}
 		interp.output = -val
-		interp.err = err
-		interp.badToken = expr.operator
 	}
 }
 
@@ -511,9 +515,13 @@ func (interp *Interpreter) lookUpVariable(name Token, expr Expr) (any, error) {
 // --------------- HELPERS ---------------
 
 func (interp *Interpreter) getReturnVal(okVal any, err error, badToken Token) {
-	interp.err = err
-	interp.badToken = badToken
-	interp.output = okVal
+	if err != nil {
+		interp.lx.RuntimeError(badToken, err)
+		interp.err = err
+		interp.badToken = badToken
+	} else {
+		interp.output = okVal
+	}
 }
 
 func isEqual(left any, right any) bool {
@@ -541,9 +549,9 @@ func toFloatPair(left any, right any) (float64, float64, error) {
 	leftVal, leftErr := toFloat(left)
 	rightVal, rightErr := toFloat(right)
 	if leftErr != nil {
-		return 0, 0, leftErr
+		return 0, 0, fmt.Errorf("Operands must be numbers.")
 	} else if rightErr != nil {
-		return 0, 0, rightErr
+		return 0, 0, fmt.Errorf("Operands must be numbers.")
 	} else {
 		return leftVal, rightVal, nil
 	}
@@ -570,7 +578,7 @@ func toFloat(val any) (float64, error) {
 	case int:
 		return float64(v), nil
 	}
-	return 0, errors.New("Converting non-numeric value to float")
+	return 0, errors.New("Operand must be a number.")
 }
 
 func toString(val any) (string, error) {
