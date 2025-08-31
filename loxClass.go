@@ -3,14 +3,19 @@ package main
 import "fmt"
 
 type LoxClass struct {
-	name    string
-	methods map[string]LoxFunction
+	name       string
+	methods    map[string]LoxFunction
+	superclass *LoxClass
 }
 
 func (lc LoxClass) findMethod(name string) (LoxFunction, error) {
 	method, ok := lc.methods[name]
 	if !ok {
-		return LoxFunction{}, fmt.Errorf("No method found.")
+		if lc.superclass != nil {
+			return lc.superclass.findMethod(name)
+		} else {
+			return LoxFunction{}, fmt.Errorf("No method found.")
+		}
 	} else {
 		return method, nil
 	}

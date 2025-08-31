@@ -48,10 +48,19 @@ func (p *Parser) declaration() (Stmt, error) {
 }
 
 func (p *Parser) class() (Stmt, error) {
-	name, nameConsumeErr := p.consume(IDENTIFIER, fmt.Sprintf("Expect class name."))
+	name, nameConsumeErr := p.consume(IDENTIFIER, "Expect class name.")
 	if nameConsumeErr != nil {
 		p.lx.ParseError(name, nameConsumeErr.Error())
 		return nil, nameConsumeErr
+	}
+	var superclass Variable
+	if p.match([]TokenType{LESS}) {
+		_, superclassConsumeErr := p.consume(IDENTIFIER, "Expect superclass name.")
+		if superclassConsumeErr != nil {
+			p.lx.ParseError(p.peek(), superclassConsumeErr.Error())
+			return nil, superclassConsumeErr
+		}
+		superclass = Variable{name: p.previous(), id: p.getId()}
 	}
 	_, leftBraceConsumeErr := p.consume(LEFT_BRACE, "Expect '{' before class body.")
 	if leftBraceConsumeErr != nil {
@@ -71,7 +80,7 @@ func (p *Parser) class() (Stmt, error) {
 		p.lx.ParseError(p.peek(), rightBraceConsumeErr.Error())
 		return nil, rightBraceConsumeErr
 	}
-	return Class{name: name, methods: methods, id: p.getId()}, nil
+	return Class{name: name, methods: methods, superclass: superclass, id: p.getId()}, nil
 }
 
 func (p *Parser) function(kind string) (Function, error) {

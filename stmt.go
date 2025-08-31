@@ -12,9 +12,10 @@ type Block struct {
 func (b Block) accept(v StmtVisitor) { v.visitBlock(b) }
 
 type Class struct {
-	name    Token
-	methods []Function
-	id      int
+	name       Token
+	superclass Variable
+	methods    []Function
+	id         int
 }
 
 func (c Class) accept(v StmtVisitor) { v.visitClass(c) }

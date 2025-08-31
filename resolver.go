@@ -44,6 +44,13 @@ func (r *Resolver) visitClass(stmt Class) {
 	enclosingClass := r.currentClass
 	r.currentClass = YESCLASS
 	r.declare(stmt.name)
+	r.define(stmt.name)
+	if stmt.superclass.id > 0 && stmt.name.lexeme == stmt.superclass.name.lexeme {
+		r.lx.ResolveError(stmt.name, "A class can't inherit from itself.")
+	}
+	if stmt.superclass.id > 0 {
+		r.resolveExpression(stmt.superclass)
+	}
 	r.beginScope()
 	r.scopes[len(r.scopes)-1]["this"] = true
 	for _, method := range stmt.methods {
@@ -54,7 +61,6 @@ func (r *Resolver) visitClass(stmt Class) {
 		r.resolveFunction(method, declaration)
 	}
 	r.endScope()
-	r.define(stmt.name)
 	r.currentClass = enclosingClass
 }
 

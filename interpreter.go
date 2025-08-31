@@ -64,13 +64,40 @@ func (interp *Interpreter) executeBlock(statements []Stmt, env *Environment) {
 }
 
 func (interp *Interpreter) visitClass(stmt Class) {
+	var superclass any
+	if stmt.superclass.id > 0 {
+		var superclassErr error
+		var superclassBadToken Token
+		superclass, superclassErr, superclassBadToken = evalExpr(stmt.superclass, interp.env, interp.locals, interp.lx)
+		if superclassErr != nil {
+			interp.err = superclassErr
+			interp.badToken = superclassBadToken
+			return
+		}
+		switch superclass.(type) {
+		case LoxClass:
+			break
+		default:
+			err := fmt.Errorf("Superclass must be a class")
+			interp.lx.RuntimeError(stmt.superclass.name, err)
+			interp.err = err
+			interp.badToken = stmt.superclass.name
+			return
+		}
+	}
 	interp.env.define(stmt.name.lexeme, nil)
 	methods := make(map[string]LoxFunction)
 	for _, method := range stmt.methods {
 		function := LoxFunction{declaration: method, env: interp.env, isInitializer: method.name.lexeme == "init"}
 		methods[method.name.lexeme] = function
 	}
-	klass := LoxClass{name: stmt.name.lexeme, methods: methods}
+	super, ok := superclass.(LoxClass)
+	var klass LoxClass
+	if ok {
+		klass = LoxClass{name: stmt.name.lexeme, methods: methods, superclass: &super}
+	} else {
+		klass = LoxClass{name: stmt.name.lexeme, methods: methods, superclass: nil}
+	}
 	interp.env.assign(stmt.name, klass)
 }
 
