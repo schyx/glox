@@ -25,7 +25,7 @@ func (lf LoxFunction) call(interp *Interpreter, args []any) any {
 		interp.checkReturn = false
 	}()
 	if lf.isInitializer {
-		output, _ := env.getAt(0, "this")
+		output, _ := lf.env.getAt(0, "this")
 		return output
 	} else {
 		return interp.returnVal
