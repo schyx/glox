@@ -209,8 +209,11 @@ func (interp *Interpreter) visitWhile(stmt While) {
 			interp.badToken = bodyBadToken
 			return
 		}
-		interp.returnVal = returnVal
-		interp.checkReturn = checkReturn
+		if checkReturn {
+			interp.returnVal = returnVal
+			interp.checkReturn = checkReturn
+			break
+		}
 	}
 }
 
