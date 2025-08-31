@@ -36,15 +36,39 @@ func (p *Parser) getId() int {
 
 func (p *Parser) declaration() (Stmt, error) {
 	if p.match([]TokenType{CLASS}) {
-		return p.class()
+		class, err := p.class()
+		if err != nil {
+			p.synchronize()
+			return nil, nil
+		} else {
+			return class, nil
+		}
 	}
 	if p.match([]TokenType{FUN}) {
-		return p.function("function")
+		function, err := p.function("function")
+		if err != nil {
+			p.synchronize()
+			return nil, nil
+		} else {
+			return function, nil
+		}
 	}
 	if p.match([]TokenType{VAR}) {
-		return p.varDeclaration()
+		v, err := p.varDeclaration()
+		if err != nil {
+			p.synchronize()
+			return nil, nil
+		} else {
+			return v, nil
+		}
 	}
-	return p.statement()
+	stmt, err := p.statement()
+	if err != nil {
+		p.synchronize()
+		return nil, nil
+	} else {
+		return stmt, nil
+	}
 }
 
 func (p *Parser) class() (Stmt, error) {
@@ -277,7 +301,7 @@ func (p *Parser) printStatement() (Stmt, error) {
 	if exprErr != nil {
 		return nil, exprErr
 	}
-	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after vale.")
+	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after expression.")
 	if consumeErr != nil {
 		p.lx.ParseError(p.peek(), consumeErr.Error())
 		return nil, errors.New(consumeErr.Error())
@@ -347,7 +371,7 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 	if exprErr != nil {
 		return nil, exprErr
 	}
-	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after vale.")
+	_, consumeErr := p.consume(SEMICOLON, "Expect ';' after expression.")
 	if consumeErr != nil {
 		p.lx.ParseError(p.peek(), consumeErr.Error())
 		return nil, errors.New(consumeErr.Error())
@@ -650,6 +674,6 @@ func (p *Parser) synchronize() {
 		case WHILE:
 			return
 		}
+		p.advance()
 	}
-	p.advance()
 }
