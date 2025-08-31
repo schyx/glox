@@ -309,6 +309,12 @@ func (interp *Interpreter) visitBinary(expr Binary) {
 		}
 		// string case
 		leftString, rightString, err := toStringPair(left, right)
+		if err != nil {
+			interp.lx.RuntimeError(expr.operator, err)
+			interp.err = err
+			interp.badToken = expr.operator
+			return
+		}
 		interp.getReturnVal(leftString+rightString, err, expr.operator)
 	}
 }
@@ -523,9 +529,9 @@ func toStringPair(left any, right any) (string, string, error) {
 	leftString, leftErr := toString(left)
 	rightString, rightErr := toString(right)
 	if leftErr != nil {
-		return "", "", leftErr
+		return "", "", fmt.Errorf("Operands must be two numbers or two strings.")
 	} else if rightErr != nil {
-		return "", "", rightErr
+		return "", "", fmt.Errorf("Operands must be two numbers or two strings.")
 	} else {
 		return leftString, rightString, nil
 	}
